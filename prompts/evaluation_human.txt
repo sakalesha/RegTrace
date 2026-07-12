@@ -1,0 +1,8 @@
+Task Title: {task_title}
+Task Description: {task_description}
+Required Evidence Types: {required_evidence}
+
+--- SUBMITTED EVIDENCE ---
+{evidence_content}
+
+Evaluate the compliance status:

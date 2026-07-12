@@ -1,0 +1,5 @@
+Source Clause/Heading: {source_clause}
+
+Regulatory Text Chunk: {text}
+
+Extract obligations:

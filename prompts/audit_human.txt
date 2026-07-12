@@ -1,0 +1,14 @@
+Total Obligations: {total_obligations}
+Total Tasks: {total_tasks}
+Compliant Tasks: {compliant}
+Partially Compliant Tasks: {partially_compliant}
+Non-Compliant Tasks: {non_compliant}
+
+Critical Gaps: {critical_gaps}
+High Gaps: {high_gaps}
+Medium/Low Gaps: {other_gaps}
+
+Top Remediations:
+{top_remediations}
+
+Write the executive summary:

@@ -1,0 +1,5 @@
+Evaluation Status: {status}
+Auditor Reason: {reason}
+Task Description: {task_desc}
+
+Analyze the gap:

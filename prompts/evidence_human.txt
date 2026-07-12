@@ -1,0 +1,7 @@
+Generate a detailed, highly realistic mock document for the following compliance evidence requirement:
+
+Task: {task_title}
+Description: {task_description}
+Required Evidence Type: {evidence_type}
+
+Include realistic fake dates, names, timestamps, and compliance checkpoints.

@@ -1,0 +1,6 @@
+Obligation: {action} {object}
+Subject: {subject}
+Condition: {condition}
+Category: {category}
+
+Generate the tasks:

@@ -1,0 +1,20 @@
+# Node
+node_modules/
+dist/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+env/
+.venv/
+
+# DB
+local_qdrant_db/
+
+# IDE
+.vscode/
+.idea/

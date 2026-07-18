@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Gavel, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 const LoginPage = () => {
   const { login } = useAuth();
@@ -22,39 +24,58 @@ const LoginPage = () => {
   };
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: "var(--paper)", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "48px 16px" }}>
-      <div style={{ width: "100%", maxWidth: "400px" }}>
-        <h2 style={{ textAlign: "center", fontSize: "32px", fontWeight: "800", color: "var(--ink)", fontFamily: "'Playfair Display', serif" }}>
-          RegTrace
-        </h2>
-        <p className="rt-sans" style={{ textAlign: "center", fontSize: "14px", color: "var(--slate)", marginTop: "8px", marginBottom: "32px" }}>
-          Sign in to your account
-        </p>
+    <div className="min-h-screen bg-background relative overflow-hidden flex flex-col justify-center items-center p-4">
+      {/* Animated Background */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] bg-primary/10 blur-[120px] rounded-full mix-blend-screen animate-pulse duration-1000"></div>
+        <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-blue-500/5 blur-[100px] rounded-full mix-blend-screen"></div>
+        <div className="absolute top-1/4 left-1/4 w-[400px] h-[400px] bg-moss/10 blur-[100px] rounded-full mix-blend-screen"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+      </div>
 
-        <div className="rt-card" style={{ padding: "32px" }}>
-          <form style={{ display: "flex", flexDirection: "column", gap: "24px" }} onSubmit={handleSubmit}>
-            <div>
-              <label className="rt-sans" style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "var(--ink)", marginBottom: "6px" }}>
-                Email address
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="z-10 w-full max-w-md"
+      >
+        <div className="text-center mb-8">
+          <motion.div
+            initial={{ scale: 0.8 }}
+            animate={{ scale: 1 }}
+            transition={{ type: "spring", bounce: 0.5 }}
+            className="inline-flex p-3 rounded-2xl bg-primary/10 border border-primary/20 mb-4"
+          >
+            <Gavel className="w-8 h-8 text-primary" />
+          </motion.div>
+          <h2 className="text-4xl font-extrabold tracking-tight font-serif text-foreground mb-2">
+            RegTrace
+          </h2>
+          <p className="text-muted-foreground text-sm font-medium tracking-wide uppercase">
+            Agentic Compliance Intelligence
+          </p>
+        </div>
+
+        <div className="glass-card p-8 shadow-2xl relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent"></div>
+          
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">
+                Email Address
               </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid var(--paper-deep)",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  outline: "none"
-                }}
+                className="w-full px-4 py-2.5 bg-background/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm"
+                placeholder="admin@regtrace.com"
               />
             </div>
 
-            <div>
-              <label className="rt-sans" style={{ display: "block", fontSize: "13px", fontWeight: "600", color: "var(--ink)", marginBottom: "6px" }}>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">
                 Password
               </label>
               <input
@@ -62,77 +83,63 @@ const LoginPage = () => {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  border: "1px solid var(--paper-deep)",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  outline: "none"
-                }}
+                className="w-full px-4 py-2.5 bg-background/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all text-sm"
+                placeholder="••••••••"
               />
             </div>
 
-            {error && (
-              <div className="rt-sans" style={{ color: "var(--rust)", fontSize: "13px", backgroundColor: "rgba(166, 70, 46, 0.1)", padding: "10px", borderRadius: "6px", border: "1px solid rgba(166, 70, 46, 0.3)" }}>
-                {error}
-              </div>
-            )}
+            <AnimatePresence>
+              {error && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="text-destructive text-sm bg-destructive/10 border border-destructive/20 p-3 rounded-lg flex items-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4 shrink-0" />
+                  <span>{error}</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <button
               type="submit"
               disabled={isLoading}
-              className="rt-btn rt-btn-primary rt-sans"
-              style={{ width: "100%", padding: "12px", fontSize: "14px" }}
+              className="w-full relative group overflow-hidden rounded-lg bg-primary text-primary-foreground font-semibold px-4 py-3 text-sm transition-all hover:bg-primary/90 disabled:opacity-70 flex justify-center items-center gap-2"
             >
-              {isLoading ? "Signing in..." : "Sign in"}
+              <span className="relative z-10">{isLoading ? "Authenticating..." : "Sign in to Dashboard"}</span>
+              {!isLoading && <ArrowRight className="w-4 h-4 relative z-10 group-hover:translate-x-1 transition-transform" />}
+              <div className="absolute inset-0 h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
             </button>
           </form>
           
-          <div style={{ marginTop: "32px", borderTop: "1px solid var(--paper-deep)", paddingTop: "24px" }}>
-            <p className="rt-sans" style={{ fontSize: "12px", color: "var(--slate)", textAlign: "center", marginBottom: "12px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Quick Demo Access
+          <div className="mt-8 pt-6 border-t border-border/50">
+            <p className="text-xs text-muted-foreground text-center mb-4 font-semibold uppercase tracking-wider flex items-center justify-center gap-2">
+              <Zap className="w-3 h-3 text-primary" /> Quick Demo Access
             </p>
-            <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("admin@regtrace.com");
-                  setPassword("YourSecurePasswordHere!");
-                }}
-                className="rt-btn rt-btn-secondary rt-sans"
-                style={{ width: "100%", padding: "8px", fontSize: "13px" }}
-              >
-                Autofill System Admin
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("officer@regtrace.com");
-                  setPassword("YourSecurePasswordHere!");
-                }}
-                className="rt-btn rt-btn-secondary rt-sans"
-                style={{ width: "100%", padding: "8px", fontSize: "13px" }}
-              >
-                Autofill Compliance Officer
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("viewer@regtrace.com");
-                  setPassword("YourSecurePasswordHere!");
-                }}
-                className="rt-btn rt-btn-secondary rt-sans"
-                style={{ width: "100%", padding: "8px", fontSize: "13px" }}
-              >
-                Autofill Viewer
-              </button>
+            <div className="flex flex-col gap-2">
+              {[
+                { label: "Autofill System Admin", email: "admin@regtrace.com" },
+                { label: "Autofill Compliance Officer", email: "officer@regtrace.com" },
+                { label: "Autofill Viewer", email: "viewer@regtrace.com" }
+              ].map((role) => (
+                <button
+                  key={role.email}
+                  type="button"
+                  onClick={() => {
+                    setEmail(role.email);
+                    setPassword("YourSecurePasswordHere!");
+                  }}
+                  className="w-full px-4 py-2 text-xs font-medium text-foreground bg-secondary/50 hover:bg-secondary border border-border/50 rounded-lg transition-colors flex justify-between items-center group"
+                >
+                  <span>{role.label}</span>
+                  <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary">Use</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
-
-
-      </div>
+      </motion.div>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Upload, FileText, Scissors, RefreshCw } from "lucide-react";
+import { Upload, FileText, Scissors, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
 import { runPipeline, getDocument, getDocumentClauses } from "../api/client";
+import { motion, AnimatePresence } from "framer-motion";
 
 const SAMPLE_TEXT = `4.1 Every stock broker shall put in place a Board-approved cyber security and cyber resilience policy, and shall conduct a comprehensive System and Network Audit on a half-yearly basis through a CERT-In empanelled auditor.
 
@@ -69,7 +70,6 @@ export default function IngestTab({ documentId, onPipelineComplete }) {
       setResult(res);
 
       if (res.document_id) {
-          // Fetch the ingested raw text
           try {
             const docData = await getDocument(res.document_id);
             setRawText(docData.raw_text || "No raw text available.");
@@ -77,7 +77,6 @@ export default function IngestTab({ documentId, onPipelineComplete }) {
             console.error("Failed to fetch document metadata", e);
           }
 
-          // Fetch the segmented clauses
           try {
             const clausesData = await getDocumentClauses(res.document_id);
             setClauses(clausesData || []);
@@ -95,122 +94,155 @@ export default function IngestTab({ documentId, onPipelineComplete }) {
   };
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div className="rt-card" style={{ padding: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <FileText size={18} color="var(--gold)" />
-          <h2 style={{ margin: 0, fontSize: 17 }}>1 · Ingest a regulatory document</h2>
+    <div className="space-y-6">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="p-2 bg-primary/10 rounded-lg">
+          <FileText size={20} className="text-primary" />
         </div>
-        <p className="rt-sans" style={{ color: "var(--slate)", fontSize: 13, marginTop: 0 }}>
-          Paste circular text, load the sample extract, or upload a file (PDF/DOCX). The AI pipeline will extract text and segment clauses.
-        </p>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
-          <input 
-            type="file" 
-            accept=".pdf,.docx,.txt"
-            onChange={e => setFile(e.target.files[0])}
-            className="rt-sans"
-            style={{ fontSize: 13, color: "var(--slate)" }}
-          />
-          <button onClick={loadSample} className="rt-btn rt-btn-dark rt-sans">
-            Load Sample Circular
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Document Ingestion</h2>
+          <p className="text-sm text-muted-foreground">Upload or paste regulatory text for AI analysis</p>
+        </div>
+      </div>
+
+      <div className="glass-card p-6">
+        <div className="flex flex-wrap gap-3 mb-4 items-center">
+          <div className="relative overflow-hidden group">
+            <input 
+              type="file" 
+              accept=".pdf,.docx,.txt"
+              onChange={e => setFile(e.target.files[0])}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+            />
+            <button className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-sm font-medium transition-colors">
+              <Upload size={14} /> {file ? file.name : "Upload File"}
+            </button>
+          </div>
+          
+          <button onClick={loadSample} className="px-4 py-2 bg-foreground text-background hover:bg-foreground/90 rounded-lg text-sm font-medium transition-colors">
+            Load Sample
           </button>
-          <button onClick={() => { setText(""); setFile(null); setResult(null); setError(null); setRawText(""); setClauses([]); }} className="rt-btn rt-btn-secondary rt-sans">
+          
+          <button onClick={() => { setText(""); setFile(null); setResult(null); setError(null); setRawText(""); setClauses([]); }} className="px-4 py-2 border border-border bg-transparent hover:bg-secondary/50 rounded-lg text-sm font-medium transition-colors text-muted-foreground ml-auto">
             Clear
           </button>
         </div>
+
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
           placeholder="Upload a file or paste circular text here..."
-          className="rt-textarea"
+          className="w-full min-h-[220px] p-4 bg-background/50 border border-border rounded-xl font-mono text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all resize-y"
         />
-        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
+
+        <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <button
             onClick={handleRun}
             disabled={(!text.trim() && !file) || running}
-            className="rt-btn rt-btn-primary rt-sans"
-            style={{ display: "flex", alignItems: "center", gap: 6 }}
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {running ? <RefreshCw size={14} className="rt-spin" /> : <Scissors size={14} />}
-            {running ? "Running AI Pipeline…" : "Run Full Pipeline"}
+            {running ? <RefreshCw size={16} className="animate-spin" /> : <Scissors size={16} />}
+            {running ? "Processing Pipeline..." : "Run AI Pipeline"}
           </button>
-          {running && (
-            <span className="rt-sans rt-pulse" style={{ fontSize: 12.5, color: "var(--gold)" }}>
-              Extracting text and segmenting clauses…
-            </span>
-          )}
+          
+          <AnimatePresence>
+            {running && (
+              <motion.span 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0 }}
+                className="text-sm font-medium text-primary flex items-center gap-2 animate-pulse"
+              >
+                Extracting text and segmenting clauses...
+              </motion.span>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
-      {error && (
-        <div className="rt-card" style={{ padding: 16, borderColor: "var(--rust)" }}>
-          <p className="rt-sans" style={{ color: "var(--rust)", fontSize: 13 }}>⚠ {error}</p>
-        </div>
-      )}
+      <AnimatePresence>
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, height: 0 }}
+            className="glass-card border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3"
+          >
+            <AlertCircle size={18} className="text-destructive mt-0.5 shrink-0" />
+            <p className="text-sm text-destructive">{error}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {result && (
-        <div className="rt-card" style={{ padding: 20 }}>
-          <h3 className="rt-sans" style={{ margin: "0 0 12px", fontSize: 14, color: "var(--moss)" }}>
-            ✓ Pipeline Complete
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+          <h3 className="text-sm font-bold text-green-500 mb-4 flex items-center gap-2">
+            <CheckCircle size={16} /> Pipeline Complete
           </h3>
-          <div className="rt-sans" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-            <div className="rt-card" style={{ padding: 12, textAlign: "center" }}>
-              <div className="rt-stat-label">Status</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: result.status === "SUCCESS" ? "var(--moss)" : "var(--rust)" }}>
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <div className="bg-background/40 p-4 rounded-xl text-center border border-border/50">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Status</div>
+              <div className={`text-lg font-bold ${result.status === "SUCCESS" ? "text-green-500" : "text-destructive"}`}>
                 {result.status}
               </div>
             </div>
-            <div className="rt-card" style={{ padding: 12, textAlign: "center" }}>
-              <div className="rt-stat-label">Agents Executed</div>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{result.agents_executed}</div>
+            <div className="bg-background/40 p-4 rounded-xl text-center border border-border/50">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Agents Executed</div>
+              <div className="text-lg font-bold text-foreground">{result.agents_executed}</div>
             </div>
-            <div className="rt-card" style={{ padding: 12, textAlign: "center" }}>
-              <div className="rt-stat-label">Duration</div>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{result.overall_duration?.toFixed(1)}s</div>
+            <div className="bg-background/40 p-4 rounded-xl text-center border border-border/50">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Duration</div>
+              <div className="text-lg font-bold text-foreground">{result.overall_duration?.toFixed(1)}s</div>
             </div>
           </div>
+
           {result.agent_results && (
-            <div style={{ marginTop: 14, display: "grid", gap: 4, maxHeight: 200, overflowY: "auto" }}>
+            <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
               {result.agent_results.map((a, i) => (
-                <div key={i} className="rt-mono" style={{ fontSize: 11, padding: "5px 8px", background: "var(--paper)", borderRadius: 4, display: "flex", gap: 10, alignItems: "center" }}>
-                  <span style={{ color: a.status === "SUCCESS" ? "var(--moss)" : "var(--rust)", fontWeight: 700, minWidth: 60 }}>{a.status}</span>
-                  <span style={{ color: "var(--gold)", fontWeight: 600, minWidth: 200 }}>{a.name}</span>
-                  <span style={{ color: "var(--slate)", minWidth: 40 }}>{a.duration?.toFixed(2)}s</span>
-                  {a.error && <span style={{ color: "var(--rust)", fontSize: 10 }}>— {a.error.slice(0, 80)}</span>}
+                <div key={i} className="flex items-center gap-3 p-2 bg-background/50 rounded-lg text-xs font-mono border border-border/30">
+                  <span className={`font-bold w-16 shrink-0 ${a.status === "SUCCESS" ? "text-green-500" : "text-destructive"}`}>{a.status}</span>
+                  <span className="text-primary font-semibold w-48 shrink-0 truncate">{a.name}</span>
+                  <span className="text-muted-foreground w-12 shrink-0">{a.duration?.toFixed(2)}s</span>
+                  {a.error && <span className="text-destructive truncate flex-1">— {a.error}</span>}
                 </div>
               ))}
-              {/* Removed hardcoded agent UI */}
             </div>
           )}
-        </div>
+        </motion.div>
       )}
 
-      {/* Render the Raw Text and Segments from the actual backend! */}
       {rawText && (
-        <div className="rt-card" style={{ padding: 20 }}>
-            <h3 className="rt-sans" style={{ margin: "0 0 10px", fontSize: 14 }}>Ingestion Output (Raw Text)</h3>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+            <h3 className="text-sm font-semibold mb-3 text-foreground">Ingestion Output (Raw Text)</h3>
             <textarea
                 readOnly
                 value={rawText}
-                className="rt-mono"
-                style={{ width: "100%", height: 200, padding: 12, fontSize: 12, border: "1px solid var(--paper-deep)", borderRadius: 3, resize: "vertical", boxSizing: "border-box" }}
+                className="w-full h-48 p-4 bg-background/40 border border-border/50 rounded-xl font-mono text-xs focus:outline-none resize-y text-muted-foreground"
             />
-        </div>
+        </motion.div>
       )}
 
       {clauses.length > 0 && (
-        <div className="rt-card" style={{ padding: 20 }}>
-            <h3 className="rt-sans" style={{ margin: "0 0 10px", fontSize: 14 }}>Segmented Clauses ({clauses.length})</h3>
-            <div style={{ display: "grid", gap: 6, maxHeight: 400, overflowY: "auto" }}>
-                {clauses.map(c => (
-                <div key={c.clause_id} style={{ display: "flex", gap: 10, fontSize: 12.5, padding: "8px", borderRadius: 3, background: "var(--paper)" }}>
-                    <span className="rt-mono" style={{ color: "var(--gold)", fontWeight: 700, minWidth: 42 }}>{c.clause_number || "-"}</span>
-                    <span className="rt-sans" style={{ color: "var(--ink)" }}>{c.text}</span>
-                </div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-foreground">Segmented Clauses</h3>
+              <span className="px-2.5 py-1 bg-primary/10 text-primary text-xs font-bold rounded-full">{clauses.length} clauses</span>
+            </div>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {clauses.map((c, i) => (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -10 }} 
+                    animate={{ opacity: 1, x: 0 }} 
+                    transition={{ delay: i * 0.02 }}
+                    key={c.clause_id} 
+                    className="flex gap-4 p-3 rounded-lg bg-background/40 border border-border/50 hover:bg-background/60 transition-colors"
+                  >
+                      <span className="font-mono text-primary font-bold text-xs shrink-0 w-10 pt-0.5">{c.clause_number || "-"}</span>
+                      <span className="text-sm text-foreground/90 leading-relaxed">{c.text}</span>
+                  </motion.div>
                 ))}
             </div>
-        </div>
+        </motion.div>
       )}
 
     </div>

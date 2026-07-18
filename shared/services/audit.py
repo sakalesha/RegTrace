@@ -13,10 +13,6 @@ class AuditLogService:
     @classmethod
     async def append(cls, action: str, details: dict, actor: str = "system", session=None) -> dict:
         db = get_db()
-        
-        # Ensure unique index on seq for compare-and-swap to work
-        await db.audit_log.create_index([("seq", 1)], unique=True)
-        
         while True:
             # 1. Fetch the last entry to get the previous hash and sequence
             last_entry = await db.audit_log.find_one(

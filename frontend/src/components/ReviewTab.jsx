@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { ShieldCheck, CheckCircle2, XCircle, Pencil, AlertTriangle, RefreshCw } from "lucide-react";
+import { ShieldCheck, CheckCircle2, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
 import { getObligations, approveObligation, rejectObligation } from "../api/client";
+import { motion, AnimatePresence } from "framer-motion";
 
 function confClass(c) {
-  if (c >= 0.8) return "conf-high";
-  if (c >= 0.55) return "conf-mid";
-  return "conf-low";
+  if (c >= 0.8) return "bg-green-500/10 text-green-500 border-green-500/20";
+  if (c >= 0.55) return "bg-primary/10 text-primary border-primary/20";
+  return "bg-destructive/10 text-destructive border-destructive/20";
 }
 
-function confBg(c) {
-  if (c >= 0.8) return "var(--moss)";
-  if (c >= 0.55) return "var(--gold)";
-  return "var(--rust)";
-}
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.05 } }
+};
+
+const item = {
+  hidden: { opacity: 0, y: 15 },
+  show: { opacity: 1, y: 0 }
+};
 
 export default function ReviewTab({ documentId }) {
   const [obligations, setObligations] = useState([]);
@@ -47,81 +52,92 @@ export default function ReviewTab({ documentId }) {
   const rejected = obligations.filter(o => o.status === "REJECTED");
 
   return (
-    <div style={{ display: "grid", gap: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <ShieldCheck size={18} color="var(--gold)" />
-          <h2 style={{ margin: 0, fontSize: 17 }}>2 · Obligation Review Queue</h2>
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card/40 backdrop-blur-sm p-4 rounded-xl border border-border">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <ShieldCheck size={20} className="text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">Obligation Review Queue</h2>
+            <p className="text-sm text-muted-foreground">Approve or reject extracted obligations</p>
+          </div>
         </div>
-        <button onClick={fetchObligations} className="rt-btn rt-btn-secondary rt-sans" style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <RefreshCw size={13} className={loading ? "rt-spin" : ""} /> Refresh
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex gap-2 text-xs font-semibold uppercase tracking-wider">
+            <span className="px-2 py-1 rounded-md bg-primary/10 text-primary">Pending: {pending.length}</span>
+            <span className="px-2 py-1 rounded-md bg-green-500/10 text-green-500">Validated: {validated.length}</span>
+            <span className="px-2 py-1 rounded-md bg-destructive/10 text-destructive">Rejected: {rejected.length}</span>
+          </div>
+          <button onClick={fetchObligations} className="flex items-center gap-2 px-3 py-1.5 bg-secondary text-secondary-foreground hover:bg-secondary/80 rounded-lg text-sm font-medium transition-colors">
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          </button>
+        </div>
       </div>
-      <p className="rt-sans" style={{ color: "var(--slate)", fontSize: 13, marginTop: -6 }}>
-        Review extracted obligations. Approve to generate compliance tasks, or reject false positives.
-        <span style={{ marginLeft: 8 }}>
-          <span className="rt-badge rt-badge-gold" style={{ marginRight: 4 }}>Pending: {pending.length}</span>
-          <span className="rt-badge rt-badge-moss" style={{ marginRight: 4 }}>Validated: {validated.length}</span>
-          <span className="rt-badge rt-badge-rust">Rejected: {rejected.length}</span>
-        </span>
-      </p>
 
       {obligations.length === 0 && !loading && (
-        <div className="rt-card rt-sans" style={{ padding: 24, textAlign: "center", color: "var(--slate)", fontSize: 13 }}>
-          No obligations found. Run the pipeline first.
+        <div className="flex flex-col items-center justify-center h-[40vh] text-muted-foreground glass-card p-12 text-sm">
+          No obligations found. Please run the AI pipeline in the Ingest tab.
         </div>
       )}
 
-      {obligations.map(ob => (
-        <div key={ob.obligation_id || ob._id} className="rt-card" style={{ padding: 16, opacity: ob.status !== "PENDING_VALIDATION" ? 0.6 : 1 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-                <span className="rt-mono" style={{ background: "var(--paper)", padding: "2px 8px", borderRadius: 4, fontSize: 12, fontWeight: 700, color: "var(--gold)" }}>
-                  {ob.obligation_id}
-                </span>
-                <span className="rt-badge" style={{ background: confBg(ob.confidence || 0), color: "#fff" }}>
-                  {Math.round((ob.confidence || 0) * 100)}% confidence
-                </span>
-                <span className="rt-sans" style={{ fontSize: 11, fontWeight: 700, color: ob.status === "VALIDATED" ? "var(--moss)" : ob.status === "REJECTED" ? "var(--rust)" : "var(--gold)", textTransform: "uppercase" }}>
-                  {ob.status}
-                </span>
-              </div>
+      <motion.div variants={container} initial="hidden" animate="show" className="grid gap-4">
+        <AnimatePresence>
+          {obligations.map(ob => (
+            <motion.div 
+              layout
+              key={ob.obligation_id || ob._id} 
+              variants={item}
+              className={`glass-card p-5 flex flex-col md:flex-row gap-4 justify-between items-start transition-all ${ob.status !== "PENDING_VALIDATION" ? "opacity-60 grayscale-[50%]" : "hover:border-primary/30"}`}
+            >
+              <div className="flex-1 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-2 py-0.5 rounded text-xs font-mono font-bold bg-background/50 text-primary border border-border">
+                    {ob.obligation_id}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${confClass(ob.confidence || 0)}`}>
+                    {Math.round((ob.confidence || 0) * 100)}% Confidence
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-widest ${ob.status === 'VALIDATED' ? 'text-green-500 bg-green-500/10' : ob.status === 'REJECTED' ? 'text-destructive bg-destructive/10' : 'text-primary bg-primary/10'}`}>
+                    {ob.status}
+                  </span>
+                </div>
 
-              <p className="rt-sans" style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{ob.title || "Compliance Obligation"}</p>
-              <p style={{ margin: "0 0 8px", fontSize: 13.5, lineHeight: 1.5 }}>{ob.obligation_text || ob.description}</p>
+                <div>
+                  <h3 className="text-base font-semibold text-foreground leading-tight">{ob.title || "Compliance Obligation"}</h3>
+                  <p className="text-sm text-foreground/80 mt-1 leading-relaxed">{ob.obligation_text || ob.description}</p>
+                </div>
 
-              <div className="rt-sans" style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--slate)", flexWrap: "wrap", marginBottom: 8 }}>
-                <span>Entity: <b style={{ color: "var(--ink)" }}>{ob.applicable_entity || ob.actor || "N/A"}</b></span>
-                {ob.frequency && <span>Freq: <b style={{ color: "var(--ink)" }}>{ob.frequency}</b></span>}
-                {ob.deadline && <span>Deadline: <b style={{ color: "var(--ink)" }}>{ob.deadline}</b></span>}
-                {ob.evidence_type && <span>Evidence: <b style={{ color: "var(--ink)" }}>{ob.evidence_type}</b></span>}
-                {ob.clause_number && <span>Clause: <b style={{ color: "var(--ink)" }}>{ob.clause_number}</b></span>}
-              </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground bg-background/30 p-2 rounded-lg inline-flex border border-border/50">
+                  <span>Entity: <strong className="text-foreground font-medium">{ob.applicable_entity || ob.actor || "N/A"}</strong></span>
+                  {ob.frequency && <span>Freq: <strong className="text-foreground font-medium">{ob.frequency}</strong></span>}
+                  {ob.deadline && <span>Deadline: <strong className="text-foreground font-medium">{ob.deadline}</strong></span>}
+                  {ob.evidence_type && <span>Evidence: <strong className="text-foreground font-medium">{ob.evidence_type}</strong></span>}
+                  {ob.clause_number && <span>Clause: <strong className="text-foreground font-medium">{ob.clause_number}</strong></span>}
+                </div>
 
-              {ob.ambiguity_flags && ob.ambiguity_flags.length > 0 && (
-                <div role="alert" style={{ marginTop: 10, padding: "8px 12px", background: "#fef2f2", borderLeft: "3px solid var(--rust)", borderRadius: 4, display: "flex", gap: 8, alignItems: "center" }}>
-                  <AlertTriangle size={14} color="var(--rust)" />
-                  <div className="rt-sans" style={{ fontSize: 12, color: "var(--rust)" }}>
-                    <b>Possible Hallucination:</b> {ob.ambiguity_flags.join(", ").replace(/_not_found/g, " not found")}
+                {ob.ambiguity_flags && ob.ambiguity_flags.length > 0 && (
+                  <div className="flex items-center gap-2 p-3 mt-2 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    <span>Possible Hallucination: {ob.ambiguity_flags.join(", ").replace(/_not_found/g, " not found")}</span>
                   </div>
+                )}
+              </div>
+
+              {ob.status === "PENDING_VALIDATION" && (
+                <div className="flex md:flex-col gap-2 w-full md:w-auto shrink-0">
+                  <button onClick={() => handleApprove(ob)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm font-medium shadow-sm shadow-green-500/20">
+                    <CheckCircle2 size={16} /> Approve
+                  </button>
+                  <button onClick={() => handleReject(ob)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-background border border-destructive text-destructive rounded-lg hover:bg-destructive/10 transition-colors text-sm font-medium">
+                    <XCircle size={16} /> Reject
+                  </button>
                 </div>
               )}
-            </div>
-
-            {ob.status === "PENDING_VALIDATION" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 96 }}>
-                <button onClick={() => handleApprove(ob)} className="rt-btn rt-btn-approve rt-sans" style={{ display: "flex", alignItems: "center", gap: 5, justifyContent: "center" }}>
-                  <CheckCircle2 size={13} /> Approve
-                </button>
-                <button onClick={() => handleReject(ob)} className="rt-btn rt-btn-reject rt-sans" style={{ display: "flex", alignItems: "center", gap: 5, justifyContent: "center" }}>
-                  <XCircle size={13} /> Reject
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      ))}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 }

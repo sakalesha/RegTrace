@@ -30,8 +30,20 @@ async def lifespan(app: FastAPI):
             await db.rate_limits.delete_many({"_id": {"$in": dups_to_remove}})
             
         await db.rate_limits.create_index("ip", unique=True)
+
+        # Deduplicate existing audit_log
+        pipeline_audit = [
+            {"$group": {"_id": "$seq", "dups": {"$push": "$_id"}, "count": {"$sum": 1}}},
+            {"$match": {"count": {"$gt": 1}}}
+        ]
+        cursor_audit = db.audit_log.aggregate(pipeline_audit)
+        async for doc in cursor_audit:
+            dups_to_remove = doc["dups"][1:]
+            await db.audit_log.delete_many({"_id": {"$in": dups_to_remove}})
+            
+        await db.audit_log.create_index([("seq", 1)], unique=True)
     except Exception as e:
-        print(f"Error initializing rate_limits index: {e}")
+        print(f"Error initializing indexes: {e}")
         raise
 
     # QdrantManager.connect()

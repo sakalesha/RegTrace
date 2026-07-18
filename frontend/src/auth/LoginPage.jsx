@@ -88,6 +88,47 @@ const LoginPage = () => {
               {isLoading ? "Signing in..." : "Sign in"}
             </button>
           </form>
+          
+          <div style={{ marginTop: "32px", borderTop: "1px solid var(--paper-deep)", paddingTop: "24px" }}>
+            <p className="rt-sans" style={{ fontSize: "12px", color: "var(--slate)", textAlign: "center", marginBottom: "12px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Quick Demo Access
+            </p>
+            <div style={{ display: "flex", gap: "8px", flexDirection: "column" }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("admin@regtrace.com");
+                  setPassword("YourSecurePasswordHere!");
+                }}
+                className="rt-btn rt-btn-secondary rt-sans"
+                style={{ width: "100%", padding: "8px", fontSize: "13px" }}
+              >
+                Autofill System Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("officer@regtrace.com");
+                  setPassword("YourSecurePasswordHere!");
+                }}
+                className="rt-btn rt-btn-secondary rt-sans"
+                style={{ width: "100%", padding: "8px", fontSize: "13px" }}
+              >
+                Autofill Compliance Officer
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("viewer@regtrace.com");
+                  setPassword("YourSecurePasswordHere!");
+                }}
+                className="rt-btn rt-btn-secondary rt-sans"
+                style={{ width: "100%", padding: "8px", fontSize: "13px" }}
+              >
+                Autofill Viewer
+              </button>
+            </div>
+          </div>
         </div>
 
 

@@ -23,6 +23,7 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Optional
+from datetime import datetime
 
 
 # --------------------------------------------------------------------------
@@ -129,6 +130,7 @@ class SegmentationRun:
     anomalies: list = field(default_factory=list)
     status: str = "completed"           # completed | completed_with_anomalies | failed
     error: Optional[str] = None
+    started_at: datetime = field(default_factory=datetime.utcnow)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -191,7 +193,9 @@ class ClauseSegmentationAgent:
         for page in pages:
             page_num = page.get("page_num")
             lines = [ln for ln in page.get("text", "").split("\n")]
-            layout_blocks = page.get("layout_blocks") or [{}] * len(lines)
+            layout_blocks = page.get("layout_blocks") or []
+            if len(layout_blocks) < len(lines):
+                layout_blocks.extend([{}] * (len(lines) - len(layout_blocks)))
 
             for raw_line, _layout in zip(lines, layout_blocks):
                 line_count += 1
@@ -240,8 +244,22 @@ class ClauseSegmentationAgent:
                     text = parsed["text"]
 
                     if line_type is LineType.SUB_ITEM:
-                        # sub-items nest one level below whatever is currently open
-                        depth = (stack[-1].depth + 1) if stack else 1
+                        sub_type = parsed.get("sub_type")
+                        target_depth = None
+                        
+                        # Look up the stack to find a sibling of the same type
+                        for entry in reversed(stack):
+                            if entry.number.startswith('(') and entry.number.endswith(')'):
+                                entry_marker = entry.number[1:-1]
+                                entry_type = "roman" if entry_marker in ('i','ii','iii','iv','v','vi','vii','viii','ix','x','xi','xii','xl','l','c') else "alpha"
+                                if entry_type == sub_type:
+                                    target_depth = entry.depth
+                                    break
+                                    
+                        if target_depth is None:
+                            target_depth = (stack[-1].depth + 1) if stack else 1
+                            
+                        depth = target_depth
                     else:
                         depth = self._depth_of(number, line_type)
                         # numbering continuity check (only meaningful for decimal clause numbers)
@@ -285,6 +303,10 @@ class ClauseSegmentationAgent:
                     if current_clause is not None:
                         current_clause.raw_lines.append(line)
                         current_clause.text = (current_clause.text + " " + line).strip()
+                        
+                        if current_clause.page_range and current_clause.page_range[1] != page_num:
+                            current_clause.page_range[1] = page_num
+                            
                         if line_type is LineType.UNCLASSIFIED:
                             if "unclassified_line" not in current_clause.anomaly_flags:
                                 current_clause.anomaly_flags.append("unclassified_line")
@@ -326,7 +348,9 @@ class ClauseSegmentationAgent:
 
         m = RE_SUB_ITEM.match(line)
         if m:
-            return LineType.SUB_ITEM, {"number": f"({m.group(1)})", "text": m.group(2)}
+            marker = m.group(1)
+            marker_type = "roman" if marker in ('i','ii','iii','iv','v','vi','vii','viii','ix','x','xi','xii','xl','l','c') else "alpha"
+            return LineType.SUB_ITEM, {"number": f"({marker})", "text": m.group(2), "sub_type": marker_type}
 
         if RE_TABLE_LIKE.search(line):
             return LineType.TABLE_ROW, {}

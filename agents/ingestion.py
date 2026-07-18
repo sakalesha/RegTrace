@@ -58,7 +58,12 @@ class IngestionAgent(BaseAgent):
             # 2. Store Original Document
             upload_dir = os.path.join(os.getcwd(), "storage", "uploads")
             StorageService.ensure_dir(upload_dir)
-            file_path = os.path.join(upload_dir, f"{document_id}_{file.filename}")
+            
+            # Prevent path traversal by using document_id and safe extension
+            ext = os.path.splitext(file.filename)[1].lower()
+            if not ext or ext not in [".pdf", ".docx", ".txt"]:
+                ext = ".bin"
+            file_path = os.path.join(upload_dir, f"{document_id}{ext}")
             
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
@@ -72,6 +77,11 @@ class IngestionAgent(BaseAgent):
             extracted_text = raw_text_input
         else:
             raise ValueError("Either upload_file or raw_text must be provided.")
+            
+        import re
+        stripped_text = re.sub(r"--- Page \d+ ---", "", extracted_text).strip()
+        if not stripped_text:
+            raise ValueError("Extracted text contains no substantive content.")
             
         # Update context with raw_text
         context.metadata["raw_text"] = extracted_text

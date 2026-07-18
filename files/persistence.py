@@ -29,24 +29,38 @@ class ClauseSegmentationPersistence:
         runs_coll = self.db["segmentation_runs"]
         audit_coll = self.db["audit_log"]
 
-        session = self.db.client.start_session()
-        try:
-            with session.start_transaction():
-                if result.clauses:
-                    clauses_coll.insert_many(
-                        [c.to_dict() for c in result.clauses], session=session
+        from pymongo.errors import DuplicateKeyError, OperationFailure
+        
+        for attempt in range(3):
+            session = self.db.client.start_session()
+            try:
+                with session.start_transaction():
+                    if result.clauses:
+                        clauses_coll.insert_many(
+                            [c.to_dict() for c in result.clauses], session=session
+                        )
+                    runs_coll.insert_one(result.run.to_dict(), session=session)
+                    audit_coll.insert_one(
+                        self._audit_entry(result), session=session
                     )
-                runs_coll.insert_one(result.run.to_dict(), session=session)
-                audit_coll.insert_one(
-                    self._audit_entry(result), session=session
-                )
-            return {"status": "committed", "clause_count": len(result.clauses)}
-        except Exception as exc:  # noqa: BLE001
-            # Transaction auto-aborts on exception exit; report cleanly upward
-            # rather than raising into the orchestrator uncaught.
-            return {"status": "failed", "error": f"{type(exc).__name__}: {exc}"}
-        finally:
-            session.end_session()
+                return {"status": "committed", "clause_count": len(result.clauses)}
+            except DuplicateKeyError:
+                # Race condition on audit log seq. Retry the transaction.
+                if attempt == 2:
+                    return {"status": "failed", "error": "Max retries exceeded for transaction conflict"}
+            except OperationFailure as exc:
+                if exc.has_error_label("TransientTransactionError"):
+                    if attempt == 2:
+                        return {"status": "failed", "error": f"Transaction failed: {exc}"}
+                else:
+                    return {"status": "failed", "error": f"{type(exc).__name__}: {exc}"}
+            except Exception as exc:  # noqa: BLE001
+                # Transaction auto-aborts on exception exit; report cleanly upward
+                return {"status": "failed", "error": f"{type(exc).__name__}: {exc}"}
+            finally:
+                session.end_session()
+                
+        return {"status": "failed", "error": "Transaction retry loop exhausted"}
 
     def _audit_entry(self, result: SegmentationResult) -> dict:
         prev = self.db["audit_log"].find_one(sort=[("seq", -1)])

@@ -22,7 +22,7 @@ const TABS = [
 ];
 
 function MainApp() {
-  const [tab, setTab] = useState("ingest");
+  const [activeTab, setActiveTab] = useState("ingest");
   const [documentId, setDocumentId] = useState(null);
 
   const handlePipelineComplete = (result) => {
@@ -48,10 +48,10 @@ function MainApp() {
   
   // Auto-switch tab if current tab is hidden
   React.useEffect(() => {
-    if (!visibleTabs.find(t => t.id === tab)) {
-      setTab(visibleTabs[0]?.id || "dashboard");
+    if (!visibleTabs.find(t => t.id === activeTab)) {
+      setActiveTab(visibleTabs[0]?.id || "dashboard");
     }
-  }, [user, tab, visibleTabs]);
+  }, [user, activeTab, visibleTabs]);
 
   return (
     <RequireAuth>
@@ -92,25 +92,25 @@ function MainApp() {
           {visibleTabs.map(t => {
             const Icon = t.icon;
             return (
-              <div
+              <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`rt-tab ${tab === t.id ? "active" : ""}`}
+                onClick={() => setActiveTab(t.id)}
+                className={`rt-tab ${activeTab === t.id ? "active" : ""}`}
               >
                 <Icon size={15} />{t.label}
-              </div>
+              </button>
             );
           })}
         </nav>
 
         {/* Content */}
         <main className="rt-content" style={{ flex: 1 }}>
-          {tab === "ingest" && <IngestTab documentId={documentId} onPipelineComplete={handlePipelineComplete} />}
-          {tab === "review" && <ReviewTab documentId={documentId} />}
-          {tab === "tasks" && <TasksTab documentId={documentId} />}
-          {tab === "trace" && <TraceTab documentId={documentId} />}
-          {tab === "dashboard" && <DashboardTab documentId={documentId} />}
-          {tab === "admin" && <AdminTab />}
+          {activeTab === "ingest" && <IngestTab documentId={documentId} onPipelineComplete={handlePipelineComplete} />}
+          {activeTab === "review" && <ReviewTab documentId={documentId} />}
+          {activeTab === "tasks" && <TasksTab documentId={documentId} />}
+          {activeTab === "trace" && <TraceTab documentId={documentId} />}
+          {activeTab === "dashboard" && <DashboardTab documentId={documentId} />}
+          {activeTab === "admin" && <AdminTab />}
         </main>
 
         {/* Footer */}

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     neo4j_password: str = "password"
     
     # Auth
-    jwt_secret: str = "d41d8cd98f00b204e9800998ecf8427e" # In a real app this would be loaded from env
+    jwt_secret: str
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     

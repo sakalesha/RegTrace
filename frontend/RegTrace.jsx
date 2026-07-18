@@ -4,6 +4,7 @@ import {
   AlertTriangle, ShieldCheck, Link2, LayoutDashboard, ListChecks,
   ChevronRight, Hash, Gavel, Search, RefreshCw
 } from "lucide-react";
+import API, { runPipeline, getDocument, getDocumentClauses, getObligations } from "./src/api/client";
 
 /* ---------------------------------------------------------------
    RegTrace — SEBI TechSprint 2026 prototype
@@ -185,32 +186,20 @@ export default function RegTraceApp() {
     try {
         let textToSegment = circularText;
         let finalClauses = [];
+        let extracted = [];
 
-        if (selectedFile) {
-            const formData = new FormData();
-            formData.append("file", selectedFile);
-            formData.append("title", selectedFile.name);
-
+        if (selectedFile || circularText.trim()) {
             // 1. Run pipeline (Ingestion + Segmentation)
-            const res = await fetch("http://localhost:8000/api/v1/pipeline/run", {
-                method: "POST",
-                body: formData
-            });
-            if (!res.ok) throw new Error("Pipeline request failed");
-            const data = await res.json();
+            const data = await runPipeline(circularText, selectedFile, selectedFile ? selectedFile.name : "Pasted Document");
             const docId = data.document_id;
 
             // 2. Fetch raw text from Ingestion
-            const docRes = await fetch(`http://localhost:8000/api/v1/documents/${docId}`);
-            if (!docRes.ok) throw new Error("Failed to fetch document metadata");
-            const docData = await docRes.json();
+            const docData = await getDocument(docId);
             textToSegment = docData.raw_text || "No text extracted.";
             setCircularText(textToSegment);
 
             // 3. Fetch structured clauses from Segmentation Agent
-            const clauseRes = await fetch(`http://localhost:8000/api/v1/documents/${docId}/clauses`);
-            if (!clauseRes.ok) throw new Error("Failed to fetch clauses");
-            const clausesData = await clauseRes.json();
+            const clausesData = await getDocumentClauses(docId);
             
             finalClauses = clausesData.map(c => ({
                 id: c.clause_id,
@@ -219,6 +208,28 @@ export default function RegTraceApp() {
             }));
             
             appendAudit("PIPELINE_RUN", { executionId: data.execution_id });
+            
+            // 4. Fetch obligations if they exist (backend success)
+            try {
+                const obs = await getObligations(docId);
+                extracted = obs.map(ob => ({
+                    id: ob.obligation_id,
+                    clauseId: ob.clause_id,
+                    clauseNumber: finalClauses.find(c => c.id === ob.clause_id)?.number || "-",
+                    obligationText: ob.obligation_text,
+                    entity: ob.entity,
+                    frequency: ob.frequency,
+                    deadline: ob.deadline,
+                    penaltyRef: ob.penalty_referenced,
+                    evidenceType: ob.evidence_type,
+                    confidence: Math.round((ob.confidence_score || 0.9) * 100),
+                    ambiguityFlags: ob.ambiguity_flags || [],
+                    reasoning: "Extracted by backend LLM",
+                    status: ob.status === "APPROVED" ? "approved" : (ob.status === "REJECTED" ? "rejected" : "pending")
+                }));
+            } catch (e) {
+                console.log("No backend obligations found, falling back to mock extraction.");
+            }
         } else {
             // Fallback to client-side mock segmentation if just pasted text
             finalClauses = segmentClauses(textToSegment);
@@ -227,18 +238,19 @@ export default function RegTraceApp() {
         setClauses(finalClauses);
         appendAudit("CLAUSES_SEGMENTED", { count: finalClauses.length });
 
-        // Mock Obligation Extraction on the real clauses
-        const extracted = [];
-        finalClauses.forEach(cl => {
-            const ob = extractObligation(cl);
-            if (ob) {
-                extracted.push({
-                    id: `ob-${cl.id}`,
-                    status: "pending",
-                    ...ob,
-                });
-            }
-        });
+        // Mock Obligation Extraction on the real clauses if backend failed or returned none
+        if (extracted.length === 0) {
+            finalClauses.forEach(cl => {
+                const ob = extractObligation(cl);
+                if (ob) {
+                    extracted.push({
+                        id: `ob-${cl.id}`,
+                        status: "pending",
+                        ...ob,
+                    });
+                }
+            });
+        }
         
         setObligations(extracted);
         appendAudit("OBLIGATIONS_EXTRACTED", { count: extracted.length, clausesScanned: finalClauses.length });

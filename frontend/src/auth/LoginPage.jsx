@@ -90,45 +90,7 @@ const LoginPage = () => {
           </form>
         </div>
 
-        <div className="rt-sans" style={{ marginTop: "32px", backgroundColor: "rgba(255, 255, 255, 0.5)", padding: "20px", borderRadius: "8px", border: "1px dashed var(--slate)", fontSize: "12px" }}>
-          <div style={{ fontWeight: "600", color: "var(--ink)", marginBottom: "12px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            TechSprint Demo Accounts
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <div 
-              style={{ cursor: "pointer", padding: "8px", backgroundColor: "var(--white)", borderRadius: "4px", border: "1px solid var(--paper-deep)", transition: "all 0.15s ease" }}
-              onClick={() => { setEmail('admin@regtrace.com'); setPassword('Admin123!'); }}
-              onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--gold)"}
-              onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--paper-deep)"}
-            >
-              <div style={{ fontWeight: "600", color: "var(--ink)", marginBottom: "2px" }}>System Admin</div>
-              <div style={{ color: "var(--slate)" }}>admin@regtrace.com / Admin123!</div>
-            </div>
-            
-            <div 
-              style={{ cursor: "pointer", padding: "8px", backgroundColor: "var(--white)", borderRadius: "4px", border: "1px solid var(--paper-deep)", transition: "all 0.15s ease" }}
-              onClick={() => { setEmail('officer@regtrace.com'); setPassword('Officer123!'); }}
-              onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--gold)"}
-              onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--paper-deep)"}
-            >
-              <div style={{ fontWeight: "600", color: "var(--ink)", marginBottom: "2px" }}>Compliance Officer</div>
-              <div style={{ color: "var(--slate)" }}>officer@regtrace.com / Officer123!</div>
-            </div>
-            
-            <div 
-              style={{ cursor: "pointer", padding: "8px", backgroundColor: "var(--white)", borderRadius: "4px", border: "1px solid var(--paper-deep)", transition: "all 0.15s ease" }}
-              onClick={() => { setEmail('viewer@regtrace.com'); setPassword('Viewer123!'); }}
-              onMouseOver={(e) => e.currentTarget.style.borderColor = "var(--gold)"}
-              onMouseOut={(e) => e.currentTarget.style.borderColor = "var(--paper-deep)"}
-            >
-              <div style={{ fontWeight: "600", color: "var(--ink)", marginBottom: "2px" }}>Viewer / Auditor</div>
-              <div style={{ color: "var(--slate)" }}>viewer@regtrace.com / Viewer123!</div>
-            </div>
-          </div>
-          <div style={{ textAlign: "center", marginTop: "12px", color: "var(--slate)", fontStyle: "italic" }}>
-            Click an account to auto-fill credentials
-          </div>
-        </div>
+
       </div>
     </div>
   );

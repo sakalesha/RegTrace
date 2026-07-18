@@ -34,8 +34,24 @@ class ClauseSegmentationAgent(BaseAgent):
         
         if clauses:
             db = get_db()
-            # Insert all clauses transactionally (bulk)
-            await db.clauses.insert_many([c.model_dump() for c in clauses])
+            from datetime import datetime
+            
+            run_id = f"SEG-{uuid.uuid4().hex[:8].upper()}"
+            context.metadata["segmentation_run_id"] = run_id
+            
+            run_doc = {
+                "run_id": run_id,
+                "document_id": context.document_id,
+                "started_at": datetime.utcnow(),
+                "status": "COMPLETED",
+                "clause_count": len(clauses)
+            }
+            
+            async with await db.client.start_session() as session:
+                async with session.start_transaction():
+                    await db.segmentation_runs.insert_one(run_doc, session=session)
+                    await db.clauses.insert_many([c.model_dump() for c in clauses], session=session)
+            
             context.metadata["clause_ids"] = [c.clause_id for c in clauses]
             
         return context
@@ -51,12 +67,13 @@ class ClauseSegmentationAgent(BaseAgent):
         
         current_clause_id: Optional[str] = None
         current_clause_num: Optional[str] = None
+        current_clause_page: int = 1
         current_text_buffer: List[str] = []
         current_page = 1
         sequence_num = 1
         
         def finalize_current_clause():
-            nonlocal sequence_num, current_clause_id, current_clause_num, current_text_buffer
+            nonlocal sequence_num, current_clause_id, current_clause_num, current_text_buffer, current_clause_page
             if current_text_buffer and current_clause_id:
                 text = " ".join([l.strip() for l in current_text_buffer if l.strip()])
                 if text:
@@ -68,7 +85,7 @@ class ClauseSegmentationAgent(BaseAgent):
                         parent_clause_id=parent_id,
                         hierarchy_path=list(hierarchy_path),
                         text=text,
-                        page_number=current_page,
+                        page_number=current_clause_page,
                         sequence_number=sequence_num
                     )
                     clauses.append(record)
@@ -76,7 +93,7 @@ class ClauseSegmentationAgent(BaseAgent):
             current_text_buffer = []
 
         def start_new_clause(num: Optional[str], depth: int, line_text: str):
-            nonlocal current_clause_id, current_clause_num, open_clauses
+            nonlocal current_clause_id, current_clause_num, open_clauses, current_clause_page
             finalize_current_clause()
             
             # Pop stack until we are at the right parent depth
@@ -85,6 +102,7 @@ class ClauseSegmentationAgent(BaseAgent):
                 
             current_clause_id = f"CLS-{uuid.uuid4().hex[:8].upper()}"
             current_clause_num = num
+            current_clause_page = current_page
             open_clauses.append({"id": current_clause_id, "num": num, "depth": depth})
             current_text_buffer.append(line_text)
 
@@ -150,8 +168,17 @@ class ClauseSegmentationAgent(BaseAgent):
                     last_num = last_open["num"]
                     if last_num and last_num.startswith('(') and num.startswith('('):
                         # Both are limbs. Determine if they are the same type.
-                        last_is_roman = bool(re.match(r"^\([ivxlcdm]+\)$", last_num, re.IGNORECASE))
-                        curr_is_roman = bool(re.match(r"^\([ivxlcdm]+\)$", num, re.IGNORECASE))
+                        last_inner = last_num[1:-1].lower()
+                        curr_inner = num[1:-1].lower()
+                        
+                        last_is_roman = bool(re.match(r"^[ivxlcdm]+$", last_inner))
+                        curr_is_roman = bool(re.match(r"^[ivxlcdm]+$", curr_inner))
+                        
+                        # Disambiguate alphabetic sequences (h) -> (i) and (i) -> (j)
+                        if (curr_inner == 'i' and last_inner == 'h') or (curr_inner == 'j' and last_inner == 'i'):
+                            curr_is_roman = False
+                            last_is_roman = False
+                            
                         if last_is_roman == curr_is_roman:
                             is_sibling = True
                             

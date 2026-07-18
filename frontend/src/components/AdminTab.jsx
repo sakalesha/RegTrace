@@ -103,7 +103,7 @@ export default function AdminTab() {
           <div>
             <label className="rt-sans" style={{ display: "block", fontSize: "13px", fontWeight: "600", marginBottom: "6px" }}>Temporary Password</label>
             <input 
-              type="text" 
+              type="password" 
               required
               value={formData.password}
               onChange={(e) => setFormData({...formData, password: e.target.value})}

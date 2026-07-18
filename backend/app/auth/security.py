@@ -11,6 +11,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
+import uuid
+
 def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     to_encode = data.copy()
     if expires_delta:
@@ -18,6 +20,6 @@ def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     else:
         expire = datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)
     
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "jti": str(uuid.uuid4())})
     encoded_jwt = jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
     return encoded_jwt

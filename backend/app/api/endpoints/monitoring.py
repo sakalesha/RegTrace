@@ -3,11 +3,14 @@ from datetime import datetime, timedelta
 from shared.database.mongodb import get_db
 from agents.continuous_monitoring import ContinuousMonitoringAgent
 from shared.services.audit import AuditLogService
-
+from backend.app.auth.dependencies import require_role
+from backend.app.auth.models import UserOut, UserRole
 router = APIRouter()
 
 @router.post("/monitoring/run")
-async def run_monitoring_cycle():
+async def run_monitoring_cycle(
+    current_user: UserOut = Depends(require_role([UserRole.ADMIN]))
+):
     """
     Manually triggers the Continuous Monitoring Agent.
     """
@@ -15,7 +18,14 @@ async def run_monitoring_cycle():
     return {"status": "success", "stats": stats}
 
 @router.post("/monitoring/simulate-time")
-async def simulate_time_passage(days: int = 10):
+async def simulate_time_passage(
+    days: int = 10,
+    current_user: UserOut = Depends(require_role([UserRole.ADMIN]))
+):
+    import os
+    if os.getenv("ENV", "development").lower() == "production":
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Simulate time is not available in production.")
     """
     HACKATHON DEMO UTILITY: 
     Shifts all existing deadlines backwards by `days` so tasks become OVERDUE,
@@ -52,24 +62,16 @@ async def simulate_time_passage(days: int = 10):
                 pass
                 
         if updates:
-            await db.compliance_tasks.update_one(
-                {"task_id": task["task_id"]},
-                {"$set": updates}
-            )
+            await db.compliance_tasks.update_one({"task_id": task["task_id"]}, {"$set": updates})
             modified_count += 1
             
-    # Record this artificial shift in the system events so there's a record of the demo hack
-    await db.system_events.insert_one({
-        "event": "DEMO_TIME_SHIFT",
-        "days_shifted": days,
-        "tasks_affected": modified_count,
-        "timestamp": datetime.utcnow().isoformat()
-    })
-    
+    await AuditLogService.append("SIMULATE_TIME", {"days_shifted": days, "tasks_modified": modified_count}, actor=current_user.id)
     return {"status": "success", "message": f"Shifted time backward by {days} days for {modified_count} tasks."}
 
 @router.post("/monitoring/verify-audit-chain")
-async def verify_audit_chain():
+async def verify_audit_chain(
+    current_user: UserOut = Depends(require_role([UserRole.ADMIN]))
+):
     """
     Admin utility to verify the tamper-evident hash chain.
     """

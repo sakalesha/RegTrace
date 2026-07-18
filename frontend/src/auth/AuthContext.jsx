@@ -10,24 +10,30 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
     const initAuth = async () => {
       if (token) {
         try {
           const userData = await getMeApi(token);
-          setUser(userData);
-          // Set the default authorization header for the global API client
-          api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          if (isMounted) {
+            setUser(userData);
+            // Set the default authorization header for the global API client
+            api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+          }
         } catch (error) {
-          console.error("Session expired or invalid token", error);
-          setToken(null);
-          setUser(null);
-          localStorage.removeItem('access_token');
-          delete api.defaults.headers.common['Authorization'];
+          if (isMounted) {
+            console.error("Session expired or invalid token", error);
+            setToken(null);
+            setUser(null);
+            localStorage.removeItem('access_token');
+            delete api.defaults.headers.common['Authorization'];
+          }
         }
       }
-      setLoading(false);
+      if (isMounted) setLoading(false);
     };
     initAuth();
+    return () => { isMounted = false; };
   }, [token]);
 
   const login = async (email, password) => {

@@ -15,30 +15,37 @@ async def seed_users():
     client = AsyncIOMotorClient(settings.mongodb_uri)
     db = client[settings.mongodb_db_name]
     
+    import os
+    
+    # Require passwords from environment variables (failing fast if absent)
+    admin_pw = os.environ["ADMIN_PASSWORD"]
+    officer_pw = os.environ["OFFICER_PASSWORD"]
+    viewer_pw = os.environ["VIEWER_PASSWORD"]
+
     users = [
         {
-            "email": "admin@regtrace.com",
+            "email": os.getenv("ADMIN_EMAIL", "admin@regtrace.com").lower(),
             "full_name": "System Admin",
             "role": UserRole.ADMIN.value,
-            "password_hash": get_password_hash("Admin123!"),
+            "password_hash": get_password_hash(admin_pw),
             "is_active": True,
-            "must_change_password": False
+            "must_change_password": True
         },
         {
-            "email": "officer@regtrace.com",
+            "email": os.getenv("OFFICER_EMAIL", "officer@regtrace.com").lower(),
             "full_name": "Alice Officer",
             "role": UserRole.COMPLIANCE_OFFICER.value,
-            "password_hash": get_password_hash("Officer123!"),
+            "password_hash": get_password_hash(officer_pw),
             "is_active": True,
-            "must_change_password": False
+            "must_change_password": True
         },
         {
-            "email": "viewer@regtrace.com",
+            "email": os.getenv("VIEWER_EMAIL", "viewer@regtrace.com").lower(),
             "full_name": "Bob Viewer",
             "role": UserRole.VIEWER.value,
-            "password_hash": get_password_hash("Viewer123!"),
+            "password_hash": get_password_hash(viewer_pw),
             "is_active": True,
-            "must_change_password": False
+            "must_change_password": True
         }
     ]
     
@@ -48,7 +55,14 @@ async def seed_users():
             await db.users.insert_one(u)
             print(f"Created user: {u['email']}")
         else:
-            print(f"User already exists: {u['email']}")
+            await db.users.update_one(
+                {"email": u["email"]},
+                {"$set": {
+                    "password_hash": u["password_hash"],
+                    "must_change_password": True
+                }}
+            )
+            print(f"User already exists, updated password and must_change_password flag: {u['email']}")
             
     client.close()
 

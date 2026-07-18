@@ -100,7 +100,7 @@ export default function ReviewTab({ documentId }) {
               </div>
 
               {ob.ambiguity_flags && ob.ambiguity_flags.length > 0 && (
-                <div style={{ marginTop: 10, padding: "8px 12px", background: "#fef2f2", borderLeft: "3px solid var(--rust)", borderRadius: 4, display: "flex", gap: 8, alignItems: "center" }}>
+                <div role="alert" style={{ marginTop: 10, padding: "8px 12px", background: "#fef2f2", borderLeft: "3px solid var(--rust)", borderRadius: 4, display: "flex", gap: 8, alignItems: "center" }}>
                   <AlertTriangle size={14} color="var(--rust)" />
                   <div className="rt-sans" style={{ fontSize: 12, color: "var(--rust)" }}>
                     <b>Possible Hallucination:</b> {ob.ambiguity_flags.join(", ").replace(/_not_found/g, " not found")}

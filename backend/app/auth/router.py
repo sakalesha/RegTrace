@@ -2,18 +2,19 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
-from datetime import timedelta
-
+from datetime import timedelta, datetime
+import jwt
 from shared.database.mongodb import get_db
 from shared.config.settings import settings
 from shared.services.audit import AuditLogService
 from backend.app.auth.models import UserCreate, UserOut, Token, ChangePasswordRequest, UserRole
 from backend.app.auth.security import verify_password, get_password_hash, create_access_token
-from backend.app.auth.dependencies import get_current_user, require_role
+from backend.app.auth.dependencies import get_current_user, require_role, rate_limit, oauth2_scheme
+from fastapi import Request
 
 router = APIRouter()
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(rate_limit(max_requests=5, window_seconds=60))])
 async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncIOMotorDatabase = Depends(get_db)
@@ -53,9 +54,27 @@ async def login(
 
 @router.post("/logout")
 async def logout(
+    token: str = Depends(oauth2_scheme),
     current_user: UserOut = Depends(get_current_user),
     db: AsyncIOMotorDatabase = Depends(get_db)
 ):
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti:
+            await db.revoked_tokens.update_one(
+                {"jti": jti},
+                {"$setOnInsert": {
+                    "revoked_at": datetime.utcnow(),
+                    "expires_at": datetime.utcfromtimestamp(exp) if exp else None
+                }},
+                upsert=True
+            )
+    except jwt.PyJWTError:
+        # Ignore decode errors on logout, token is invalid anyway
+        pass
+        
     await AuditLogService.append("LOGOUT", {"email": current_user.email}, actor=current_user.id)
     return {"message": "Successfully logged out"}
 

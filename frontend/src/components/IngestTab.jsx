@@ -180,22 +180,7 @@ export default function IngestTab({ documentId, onPipelineComplete }) {
                   {a.error && <span style={{ color: "var(--rust)", fontSize: 10 }}>— {a.error.slice(0, 80)}</span>}
                 </div>
               ))}
-              {/* Add the async agents for architectural completeness in the UI */}
-              <div className="rt-mono" style={{ fontSize: 11, padding: "5px 8px", background: "var(--paper)", borderRadius: 4, display: "flex", gap: 10, alignItems: "center", opacity: 0.8 }}>
-                <span style={{ color: "var(--slate)", fontWeight: 700, minWidth: 60 }}>PENDING</span>
-                <span style={{ color: "var(--gold)", fontWeight: 600, minWidth: 200 }}>HumanReviewAgent</span>
-                <span style={{ color: "var(--slate)", fontSize: 10 }}>— Awaiting officer review</span>
-              </div>
-              <div className="rt-mono" style={{ fontSize: 11, padding: "5px 8px", background: "var(--paper)", borderRadius: 4, display: "flex", gap: 10, alignItems: "center", opacity: 0.8 }}>
-                <span style={{ color: "var(--slate)", fontWeight: 700, minWidth: 60 }}>ASYNC</span>
-                <span style={{ color: "var(--gold)", fontWeight: 600, minWidth: 200 }}>TaskGenerationAgent</span>
-                <span style={{ color: "var(--slate)", fontSize: 10 }}>— Triggers on approval</span>
-              </div>
-              <div className="rt-mono" style={{ fontSize: 11, padding: "5px 8px", background: "var(--paper)", borderRadius: 4, display: "flex", gap: 10, alignItems: "center", opacity: 0.8 }}>
-                <span style={{ color: "var(--slate)", fontWeight: 700, minWidth: 60 }}>DAEMON</span>
-                <span style={{ color: "var(--gold)", fontWeight: 600, minWidth: 200 }}>ContinuousMonitoringAgent</span>
-                <span style={{ color: "var(--slate)", fontSize: 10 }}>— Running in background</span>
-              </div>
+              {/* Removed hardcoded agent UI */}
             </div>
           )}
         </div>

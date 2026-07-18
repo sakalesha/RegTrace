@@ -23,7 +23,7 @@ async def get_dashboard(
     return {
         "obligations": {
             "total": len(obligations),
-            "validated": len([o for o in obligations if o.get("status") in ["VALIDATED", "APPROVED"]]),
+            "validated": len([o for o in obligations if o.get("status") in ["VALIDATED", "APPROVED", "EDITED"]]),
             "pending": len([o for o in obligations if o.get("status") in ["PENDING_VALIDATION", "PENDING"]]),
             "rejected": len([o for o in obligations if o.get("status") == "REJECTED"]),
             "avg_confidence": round(

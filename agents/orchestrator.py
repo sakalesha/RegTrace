@@ -75,6 +75,15 @@ class OrchestratorAgent:
             try:
                 Logger.info("Orchestrator", f"Running {agent_name}...")
                 context = await agent_cls.execute(context)
+                
+                # Explicit validation checks
+                if agent_name == "IngestionAgent" and not context.metadata.get("raw_text"):
+                    raise ValueError("IngestionAgent failed to produce raw_text.")
+                elif agent_name == "ClauseSegmentationAgent" and not context.metadata.get("clause_ids"):
+                    raise ValueError("ClauseSegmentationAgent failed to produce clause_ids.")
+                elif agent_name == "ObligationExtractionAgent" and not context.metadata.get("extraction_run_id"):
+                    raise ValueError("ObligationExtractionAgent failed to produce extraction_run_id.")
+                    
             except Exception as e:
                 Logger.error("Orchestrator", f"{agent_name} failed", exc=e)
                 agent_status = "FAILED"

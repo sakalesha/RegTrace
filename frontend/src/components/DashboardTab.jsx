@@ -35,6 +35,7 @@ export default function DashboardTab({ documentId }) {
     { label: "Pending Review", value: stats.obligations?.pending || 0, color: "var(--gold)" },
     { label: "Tasks Generated", value: stats.tasks?.total || 0, color: "var(--ink)" },
     { label: "Open Tasks", value: stats.tasks?.open || 0, color: "var(--moss)" },
+    { label: "In Progress", value: stats.tasks?.in_progress || 0, color: "var(--gold)" },
     { label: "Tasks Completed", value: stats.tasks?.completed || 0, color: "var(--moss)" },
     { label: "Overdue Tasks", value: stats.tasks?.overdue || 0, color: "var(--rust)" },
     { label: "Compliant", value: stats.evaluations?.compliant || 0, color: "var(--moss)" },

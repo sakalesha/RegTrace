@@ -18,7 +18,7 @@ class ComplianceTask(BaseModel):
     status: str = "OPEN"
     
     frequency: Optional[str] = None
-    deadline: Optional[str] = None
+    deadline: Optional[datetime] = None
     estimated_effort: Optional[str] = None
     
     dependencies: List[str] = Field(default_factory=list) # List of task titles this task depends on

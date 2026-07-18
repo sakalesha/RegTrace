@@ -15,6 +15,25 @@ from backend.app.api.endpoints.dashboard import router as dashboard_router
 async def lifespan(app: FastAPI):
     # Startup events
     MongoDBManager.connect()
+    from shared.database.mongodb import get_db
+    db = get_db()
+    
+    try:
+        # Deduplicate existing rate_limits
+        pipeline = [
+            {"$group": {"_id": "$ip", "dups": {"$push": "$_id"}, "count": {"$sum": 1}}},
+            {"$match": {"count": {"$gt": 1}}}
+        ]
+        cursor = db.rate_limits.aggregate(pipeline)
+        async for doc in cursor:
+            dups_to_remove = doc["dups"][1:]
+            await db.rate_limits.delete_many({"_id": {"$in": dups_to_remove}})
+            
+        await db.rate_limits.create_index("ip", unique=True)
+    except Exception as e:
+        print(f"Error initializing rate_limits index: {e}")
+        raise
+
     # QdrantManager.connect()
     # Neo4jManager.connect()
     yield

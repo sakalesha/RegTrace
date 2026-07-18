@@ -40,7 +40,9 @@ async def ingest_document(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        from shared.services.logger import Logger
+        Logger.error("IngestionAPI", "Internal Server Error during ingestion", exc=e)
+        raise HTTPException(status_code=500, detail="Internal Server Error: An unexpected error occurred during ingestion.")
         
     db = get_db()
     record_dict = await db.raw_documents.find_one({"document_id": context.document_id})

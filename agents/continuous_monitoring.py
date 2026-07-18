@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timedelta
 from dateutil.parser import parse as parse_date
+from dateutil.relativedelta import relativedelta
 from shared.database.mongodb import get_db
 from shared.services.logger import Logger
 from shared.services.audit import AuditLogService
@@ -102,49 +103,61 @@ class ContinuousMonitoringAgent:
                 if not frequency or frequency.lower() in ["none", "one time", ""]:
                     continue
                     
-                # Check if next occurrence already exists
-                existing_next = await db.compliance_tasks.find_one({
-                    "obligation_id": task["obligation_id"],
-                    "previous_occurrence_id": task["task_id"]
-                })
+                # Use upsert to atomically insert the next occurrence only if it doesn't exist
+                new_task_id = f"TSK-{uuid.uuid4().hex[:8].upper()}"
                 
-                if not existing_next:
-                    # Generate next occurrence
-                    new_task_id = f"TSK-{uuid.uuid4().hex[:8].upper()}"
-                    new_task = {
-                        "task_id": new_task_id,
-                        "document_id": task.get("document_id"),
-                        "obligation_id": task.get("obligation_id"),
-                        "title": task.get("title"),
-                        "description": task.get("description"),
-                        "owner_role": task.get("owner_role"),
-                        "priority": task.get("priority"),
-                        "status": "OPEN",
-                        "frequency": frequency,
-                        "evidence_required": task.get("evidence_required"),
-                        "trace": task.get("trace"),
-                        "previous_occurrence_id": task["task_id"],
-                        "created_at": datetime.utcnow()
-                    }
-                    
-                    # Compute next deadline simply if possible
-                    # Real scheduling engines use iCal rules, we do a basic MVP approximation
-                    if task.get("deadline"):
-                        try:
-                            old_due = parse_date(task["deadline"])
-                            if "year" in frequency.lower() or "annual" in frequency.lower():
-                                new_due = old_due + timedelta(days=365)
-                            elif "quarter" in frequency.lower():
-                                new_due = old_due + timedelta(days=90)
-                            elif "month" in frequency.lower():
-                                new_due = old_due + timedelta(days=30)
-                            else:
-                                new_due = old_due
-                            new_task["deadline"] = new_due.isoformat()
-                        except:
-                            new_task["deadline"] = None
-                            
-                    await db.compliance_tasks.insert_one(new_task)
+                new_due = None
+                if task.get("deadline"):
+                    try:
+                        old_due = parse_date(task["deadline"])
+                        if "year" in frequency.lower() or "annual" in frequency.lower():
+                            new_due = old_due + relativedelta(years=1)
+                        elif "quarter" in frequency.lower():
+                            new_due = old_due + relativedelta(months=3)
+                        elif "month" in frequency.lower():
+                            new_due = old_due + relativedelta(months=1)
+                        
+                        if new_due:
+                            new_due = new_due.isoformat()
+                    except:
+                        pass
+                
+                if not new_due:
+                    from shared.services.audit import AuditLogService
+                    await AuditLogService.append("RECURRENCE_VALIDATION_GAP", {
+                        "reason": "Missing or unparsable deadline/frequency",
+                        "task_id": task.get("task_id"),
+                        "obligation_id": task.get("obligation_id")
+                    })
+                    continue
+                
+                new_task = {
+                    "task_id": new_task_id,
+                    "document_id": task.get("document_id"),
+                    "obligation_id": task.get("obligation_id"),
+                    "title": task.get("title"),
+                    "description": task.get("description"),
+                    "owner_role": task.get("owner_role"),
+                    "priority": task.get("priority"),
+                    "status": "OPEN",
+                    "frequency": frequency,
+                    "evidence_required": task.get("evidence_required"),
+                    "trace": task.get("trace"),
+                    "previous_occurrence_id": task["task_id"],
+                    "created_at": datetime.utcnow(),
+                    "deadline": new_due
+                }
+                
+                result = await db.compliance_tasks.update_one(
+                    {
+                        "obligation_id": task["obligation_id"],
+                        "previous_occurrence_id": task["task_id"]
+                    },
+                    {"$setOnInsert": new_task},
+                    upsert=True
+                )
+                
+                if result.upserted_id:
                     await AuditLogService.append("TASK_RECURRENCE_GENERATED", {
                         "task_id": new_task_id,
                         "parent_task_id": task["task_id"]
@@ -153,6 +166,17 @@ class ContinuousMonitoringAgent:
                     
         except Exception as e:
             Logger.error("ContinuousMonitoringAgent", "Monitoring run failed", exc=e)
+            end_time = datetime.utcnow()
+            duration_ms = int((end_time - start_time).total_seconds() * 1000)
+            await db.system_events.insert_one({
+                "event": "MONITORING_RUN_COMPLETED",
+                "run_id": run_id,
+                "duration_ms": duration_ms,
+                "status": "FAILED",
+                "error": str(e),
+                "stats": stats
+            })
+            raise e
             
         end_time = datetime.utcnow()
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
@@ -170,21 +194,31 @@ class ContinuousMonitoringAgent:
 
     @classmethod
     async def _record_gap(cls, db, gap_type: str, obligation_id: str, task_id: str):
-        # Idempotent record
-        existing = await db.compliance_gaps.find_one({
-            "gap_type": gap_type,
-            "obligation_id": obligation_id,
-            "task_id": task_id,
-            "resolved": {"$ne": True}
-        })
-        if not existing:
-            gap = {
-                "gap_id": f"GAP-{uuid.uuid4().hex[:8].upper()}",
+        # Idempotent record via upsert
+        gap_id = f"GAP-{uuid.uuid4().hex[:8].upper()}"
+        result = await db.compliance_gaps.update_one(
+            {
                 "gap_type": gap_type,
                 "obligation_id": obligation_id,
                 "task_id": task_id,
-                "detected_at": datetime.utcnow(),
-                "resolved": False
-            }
-            await db.compliance_gaps.insert_one(gap)
-            await AuditLogService.append("COMPLIANCE_GAP_DETECTED", gap)
+                "resolved": {"$ne": True}
+            },
+            {
+                "$setOnInsert": {
+                    "gap_id": gap_id,
+                    "gap_type": gap_type,
+                    "obligation_id": obligation_id,
+                    "task_id": task_id,
+                    "detected_at": datetime.utcnow(),
+                    "resolved": False
+                }
+            },
+            upsert=True
+        )
+        if result.upserted_id:
+            await AuditLogService.append("COMPLIANCE_GAP_DETECTED", {
+                "gap_id": gap_id,
+                "gap_type": gap_type,
+                "obligation_id": obligation_id,
+                "task_id": task_id
+            })

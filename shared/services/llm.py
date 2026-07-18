@@ -49,27 +49,11 @@ class LLMService:
             try:
                 return await chain.ainvoke(input_vars)
             except Exception as e:
-                # Fallback for Groq tool usage JSON error
-                error_msg = str(e)
-                if 'failed_generation' in error_msg and '<function=' in error_msg:
-                    try:
-                        import re
-                        import json
-                        # Extract the JSON between <function=...> and </function>
-                        match = re.search(r"<function=.*?>\s*(.*?)\s*</function>", error_msg, re.DOTALL)
-                        if match:
-                            json_str = match.group(1)
-                            # Fix stray trailing characters like `}]})]} ` -> `}]}`
-                            json_str = re.sub(r'\}\]\}\)\]\}(\s*)$', '}]}', json_str)
-                            parsed = json.loads(json_str)
-                            return schema(**parsed)
-                    except Exception as fallback_e:
-                        Logger.warning("LLMService", f"Fallback parser failed: {fallback_e}")
-                
-                Logger.warning("LLMService", f"Structured output failed (Attempt {attempt+1}/{cls.MAX_RETRIES}): {e}")
+                error_type = type(e).__name__
+                Logger.warning("LLMService", f"Structured output failed (Attempt {attempt+1}/{cls.MAX_RETRIES}): {error_type}")
                 if attempt == cls.MAX_RETRIES - 1:
-                    Logger.error("LLMService", "Max retries reached for structured output", exc=e)
-                    raise
+                    Logger.error("LLMService", f"Max retries reached for structured output: {error_type}")
+                    raise RuntimeError(f"LLM generation failed after {cls.MAX_RETRIES} attempts") from e
                 await asyncio.sleep(2 ** attempt)  # Exponential backoff
 
     @classmethod
@@ -98,8 +82,9 @@ class LLMService:
                 response = await chain.ainvoke(input_vars)
                 return response.content
             except Exception as e:
-                Logger.warning("LLMService", f"Text generation failed (Attempt {attempt+1}/{cls.MAX_RETRIES}): {e}")
+                error_type = type(e).__name__
+                Logger.warning("LLMService", f"Text generation failed (Attempt {attempt+1}/{cls.MAX_RETRIES}): {error_type}")
                 if attempt == cls.MAX_RETRIES - 1:
-                    Logger.error("LLMService", "Max retries reached for text generation", exc=e)
-                    raise
+                    Logger.error("LLMService", f"Max retries reached for text generation: {error_type}")
+                    raise RuntimeError(f"LLM text generation failed after {cls.MAX_RETRIES} attempts") from e
                 await asyncio.sleep(2 ** attempt)

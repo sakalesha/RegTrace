@@ -5,13 +5,14 @@ from dateutil.relativedelta import relativedelta
 from shared.database.mongodb import get_db
 from shared.services.logger import Logger
 from shared.services.audit import AuditLogService
+from backend.app.monitoring.gap_detection import run_gap_checks
 
 class ContinuousMonitoringAgent:
     """
     Background agent that scans the tasks collection to:
     1. Detect overdue tasks and escalate priorities.
-    2. Materialize the next occurrence of recurring tasks.
-    3. Detect compliance gaps (e.g., approved obligations with no tasks).
+    2. Detect compliance gaps (e.g., approved obligations with no tasks).
+    3. Materialize the next occurrence of recurring tasks.
     """
 
     @classmethod
@@ -29,7 +30,7 @@ class ContinuousMonitoringAgent:
         
         start_time = datetime.utcnow()
         
-        await db.system_events.insert_one({
+        await db.monitoring_runs.insert_one({
             "event": "MONITORING_RUN_STARTED",
             "run_id": run_id,
             "timestamp": start_time.isoformat()
@@ -43,28 +44,7 @@ class ContinuousMonitoringAgent:
             
             for task in open_tasks:
                 deadline_str = task.get("deadline")
-                
-                # Check for stale unassigned deadlines (Gap detection)
                 if not deadline_str:
-                    created_at = task.get("created_at")
-                    dt_created = None
-                    if isinstance(created_at, datetime):
-                        dt_created = created_at
-                    elif isinstance(created_at, str):
-                        try:
-                            dt_created = parse_date(created_at).replace(tzinfo=None)
-                        except:
-                            pass
-                            
-                    if dt_created and (datetime.utcnow() - dt_created).days > 7:
-                        # Gap: Task exists for >7 days without a deadline
-                        await cls._record_gap(
-                            db, 
-                            "unassigned_deadline_stale", 
-                            task.get("obligation_id"), 
-                            task.get("task_id")
-                        )
-                        stats["gaps_detected"] += 1
                     continue
                 
                 # Attempt to parse deadline
@@ -84,17 +64,8 @@ class ContinuousMonitoringAgent:
                     # Deadline is likely relative/unparseable (e.g. "Within 30 days")
                     pass
 
-            # 2. Gap Detection: Missing tasks for approved obligations
-            approved_obligations = await db.obligations.find({"status": {"$in": ["APPROVED", "VALIDATED", "EDITED"]}}).to_list(None)
-            for ob in approved_obligations:
-                if not ob.get("task_id"):
-                    await cls._record_gap(
-                        db,
-                        "missing_task_for_approved_obligation",
-                        ob.get("obligation_id"),
-                        None
-                    )
-                    stats["gaps_detected"] += 1
+            # 2. Gap Detection
+            stats["gaps_detected"] = await run_gap_checks(run_id)
 
             # 3. Recurrence Generation
             completed_tasks = await db.compliance_tasks.find({"status": "COMPLETED"}).to_list(None)
@@ -168,7 +139,7 @@ class ContinuousMonitoringAgent:
             Logger.error("ContinuousMonitoringAgent", "Monitoring run failed", exc=e)
             end_time = datetime.utcnow()
             duration_ms = int((end_time - start_time).total_seconds() * 1000)
-            await db.system_events.insert_one({
+            await db.monitoring_runs.insert_one({
                 "event": "MONITORING_RUN_COMPLETED",
                 "run_id": run_id,
                 "duration_ms": duration_ms,
@@ -181,7 +152,7 @@ class ContinuousMonitoringAgent:
         end_time = datetime.utcnow()
         duration_ms = int((end_time - start_time).total_seconds() * 1000)
         
-        await db.system_events.insert_one({
+        await db.monitoring_runs.insert_one({
             "event": "MONITORING_RUN_COMPLETED",
             "run_id": run_id,
             "duration_ms": duration_ms,
@@ -191,34 +162,3 @@ class ContinuousMonitoringAgent:
         
         Logger.info("ContinuousMonitoringAgent", f"Cycle {run_id} complete. Stats: {stats}")
         return stats
-
-    @classmethod
-    async def _record_gap(cls, db, gap_type: str, obligation_id: str, task_id: str):
-        # Idempotent record via upsert
-        gap_id = f"GAP-{uuid.uuid4().hex[:8].upper()}"
-        result = await db.compliance_gaps.update_one(
-            {
-                "gap_type": gap_type,
-                "obligation_id": obligation_id,
-                "task_id": task_id,
-                "resolved": {"$ne": True}
-            },
-            {
-                "$setOnInsert": {
-                    "gap_id": gap_id,
-                    "gap_type": gap_type,
-                    "obligation_id": obligation_id,
-                    "task_id": task_id,
-                    "detected_at": datetime.utcnow(),
-                    "resolved": False
-                }
-            },
-            upsert=True
-        )
-        if result.upserted_id:
-            await AuditLogService.append("COMPLIANCE_GAP_DETECTED", {
-                "gap_id": gap_id,
-                "gap_type": gap_type,
-                "obligation_id": obligation_id,
-                "task_id": task_id
-            })

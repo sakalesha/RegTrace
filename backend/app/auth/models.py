@@ -6,6 +6,7 @@ class UserRole(str, Enum):
     ADMIN = "ADMIN"
     COMPLIANCE_OFFICER = "COMPLIANCE_OFFICER"
     VIEWER = "VIEWER"
+    TASK_OWNER = "TASK_OWNER"
 
 class UserCreate(BaseModel):
     email: EmailStr

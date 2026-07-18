@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from pydantic import field_validator, Field
 
 class Settings(BaseSettings):
     # MongoDB
@@ -19,6 +19,17 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     
     demo_mode: bool = True
+    
+    # Vector Search Settings
+    vector_index_name: str = "clause_vector_index"
+    vector_collection_name: str = "clauses"
+    vector_field_name: str = "embedding"
+    
+    # Scheduler Settings
+    monitoring_job_timezone: str = "Asia/Kolkata"
+    
+    # Gap Detection
+    stale_deadline_threshold_days: int = Field(default=7, gt=0)
     
     @field_validator('mongodb_db_name', 'mongodb_uri', mode='before')
     @classmethod

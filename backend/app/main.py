@@ -3,8 +3,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from shared.database.mongodb import MongoDBManager
-from shared.database.qdrant import QdrantManager
-from shared.database.neo4j_manager import Neo4jManager
 from backend.app.api.endpoints.ingestion import router as ingestion_router
 from backend.app.api.endpoints.pipeline import router as pipeline_router
 from backend.app.api.endpoints.obligations import router as obligations_router
@@ -45,14 +43,31 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Error initializing indexes: {e}")
         raise
-
-    # QdrantManager.connect()
-    # Neo4jManager.connect()
-    yield
-    # Shutdown events
-    MongoDBManager.disconnect()
-    # Neo4jManager.disconnect()
-
+        
+    scheduler = None
+    try:
+        # Init APScheduler
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from apscheduler.triggers.cron import CronTrigger
+        from agents.continuous_monitoring import ContinuousMonitoringAgent
+        from shared.config.settings import settings
+        
+        try:
+            scheduler = AsyncIOScheduler()
+            scheduler.add_job(
+                ContinuousMonitoringAgent.run_cycle,
+                CronTrigger(hour=2, minute=0, timezone=settings.monitoring_job_timezone),
+                id="daily_monitoring_job",
+                replace_existing=True
+            )
+            scheduler.start()
+        
+            yield
+        finally:
+            if scheduler:
+                scheduler.shutdown()
+    finally:
+        MongoDBManager.disconnect()
 app = FastAPI(
     title="Agentic Compliance API",
     description="API for translating regulatory text to operational action",
@@ -76,10 +91,12 @@ app.include_router(tasks_router, prefix="/api/v1", tags=["Tasks"])
 app.include_router(dashboard_router, prefix="/api/v1", tags=["Dashboard"])
 
 from backend.app.api.endpoints.monitoring import router as monitoring_router
+from backend.app.monitoring.router import router as compliance_gaps_router
 from backend.app.auth.router import router as auth_router
 
 app.include_router(auth_router, prefix="/api/v1/auth", tags=["Auth"])
 app.include_router(monitoring_router, prefix="/api/v1", tags=["Monitoring"])
+app.include_router(compliance_gaps_router, prefix="/api/v1", tags=["Compliance Gaps"])
 
 @app.get("/health", tags=["System"])
 async def health_check():

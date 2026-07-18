@@ -3,7 +3,6 @@ import uuid
 import shutil
 import fitz  # PyMuPDF
 from docx import Document
-from fastapi import UploadFile, HTTPException
 
 from shared.database.mongodb import get_db
 from shared.schemas.document import DocumentRecord
@@ -12,13 +11,6 @@ from agents.base import BaseAgent
 from shared.services.logger import Logger
 from shared.services.storage import StorageService
 
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
-ALLOWED_CONTENT_TYPES = [ # Standard MIME types
-    "application/pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document", #docx
-    "text/plain" #txt
-]
-
 class IngestionAgent(BaseAgent):
 
     @classmethod
@@ -26,57 +18,36 @@ class IngestionAgent(BaseAgent):
         Logger.info("IngestionAgent", "Starting ingestion process...")
         db = get_db()
         
-        file: UploadFile = context.metadata.get("upload_file")
+        file_path = context.metadata.get("file_path")
+        filename = context.metadata.get("filename")
         metadata_input = context.metadata.get("metadata_input")
         raw_text_input = context.metadata.get("raw_text")
         
         if not metadata_input:
             raise ValueError("metadata_input missing from ExecutionContext metadata")
             
-        document_id = f"DOC-{uuid.uuid4().hex[:8].upper()}"
-        Logger.info("IngestionAgent", f"Generated document_id: {document_id}")
+        document_id = context.document_id
+        if not document_id:
+            document_id = f"DOC-{uuid.uuid4().hex[:8].upper()}"
+            context.document_id = document_id
+            
+        Logger.info("IngestionAgent", f"Using document_id: {document_id}")
         
-        file_path = ""
         file_size = 0
         extracted_text = ""
         
-        if file:
-            # 1. Validation
-            file.file.seek(0, 2)
-            file_size = file.file.tell()
-            file.file.seek(0)
-            
+        if file_path and os.path.exists(file_path):
+            file_size = os.path.getsize(file_path)
             if file_size == 0:
-                raise ValueError(f"Uploaded file {file.filename} is empty.")
+                raise ValueError(f"Uploaded file {filename} is empty.")
                 
-            if file_size > MAX_FILE_SIZE:
-                raise ValueError(f"Uploaded file exceeds maximum size of 50MB. Size: {file_size} bytes.")
-                
-            if file.content_type not in ALLOWED_CONTENT_TYPES and not file.filename.endswith((".pdf", ".docx", ".txt")):
-                raise ValueError(f"Unsupported file type: {file.content_type} or {file.filename}. Allowed: PDF, DOCX, TXT.")
-                
-            # 2. Store Original Document
-            upload_dir = os.path.join(os.getcwd(), "storage", "uploads")
-            StorageService.ensure_dir(upload_dir)
-            
-            # Prevent path traversal by using document_id and safe extension
-            ext = os.path.splitext(file.filename)[1].lower()
-            if not ext or ext not in [".pdf", ".docx", ".txt"]:
-                ext = ".bin"
-            file_path = os.path.join(upload_dir, f"{document_id}{ext}")
-            
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(file.file, buffer)
-                
-            Logger.info("IngestionAgent", f"File saved to {file_path}")
-            
-            # 3. Extract Document Text
-            extracted_text = cls._extract_text(file_path, file.filename)
+            Logger.info("IngestionAgent", f"Extracting text from {file_path}")
+            extracted_text = cls._extract_text(file_path, filename)
             
         elif raw_text_input:
             extracted_text = raw_text_input
         else:
-            raise ValueError("Either upload_file or raw_text must be provided.")
+            raise ValueError("Either file_path or raw_text must be provided.")
             
         import re
         stripped_text = re.sub(r"--- Page \d+ ---", "", extracted_text).strip()
@@ -90,13 +61,13 @@ class IngestionAgent(BaseAgent):
         # 4. Save Document Information
         doc_record = DocumentRecord(
             document_id=document_id,
-            title=metadata_input.title or (file.filename if file else "Raw Text Input"),
+            title=metadata_input.title or (filename if filename else "Raw Text Input"),
             source=metadata_input.source or "Upload",
             document_type=metadata_input.document_type or "PDF",
             publication_date=metadata_input.publication_date or "",
             language=metadata_input.language or "English",
             status="READY_FOR_PROCESSING",
-            file_path=file_path,
+            file_path=file_path or "",
             file_size=file_size if file_size > 0 else None,
             raw_text=extracted_text,
             checksum="DUMMY_CHECKSUM"
@@ -105,7 +76,6 @@ class IngestionAgent(BaseAgent):
         await db.raw_documents.insert_one(doc_record.model_dump())
         Logger.info("IngestionAgent", "Document metadata stored in MongoDB.")
         
-        context.document_id = document_id
         return context
 
     @classmethod

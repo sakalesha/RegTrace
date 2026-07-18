@@ -11,16 +11,6 @@ from shared.services.logger import Logger
 from agents.ingestion import IngestionAgent
 from agents.clause_segmentation import ClauseSegmentationAgent
 from agents.obligation import ObligationExtractionAgent
-# from agents.chunking import ChunkingAgent
-# from agents.embedding import EmbeddingAgent
-# from agents.validation import ValidationAgent
-# from agents.graph import KnowledgeGraphAgent
-# from agents.task_generation import TaskGenerationAgent
-# from agents.task_assignment import TaskAssignmentAgent
-# from agents.evidence import EvidenceCollectionAgent
-# from agents.evaluation import ComplianceEvaluationAgent
-# from agents.gap import GapAnalysisAgent
-# from agents.report import AuditReportAgent
 
 
 class OrchestratorAgent:
@@ -41,25 +31,8 @@ class OrchestratorAgent:
             ("IngestionAgent", IngestionAgent),
             ("ClauseSegmentationAgent", ClauseSegmentationAgent),
             ("ObligationExtractionAgent", ObligationExtractionAgent),
-            # ("ChunkingAgent", ChunkingAgent),
-            # ("EmbeddingAgent", EmbeddingAgent),
-            # ("ValidationAgent", ValidationAgent),
-            # ("TaskGenerationAgent", TaskGenerationAgent),
-            # ("TaskAssignmentAgent", TaskAssignmentAgent)
+
         ]
-        
-        # if context.config.enable_knowledge_graph:
-        #     agents.append(("KnowledgeGraphAgent", KnowledgeGraphAgent))
-        
-        # if context.config.enable_mock_evidence:
-        #     agents.append(("EvidenceCollectionAgent", EvidenceCollectionAgent))
-        #     agents.append(("ComplianceEvaluationAgent", ComplianceEvaluationAgent))
-            
-        # if context.config.enable_gap_analysis:
-        #     agents.append(("GapAnalysisAgent", GapAnalysisAgent))
-            
-        # if context.config.enable_audit_report:
-        #     agents.append(("AuditReportAgent", AuditReportAgent))
 
         for agent_name, agent_cls in agents:
             context.current_agent = agent_name

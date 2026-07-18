@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from typing import Optional
 from shared.database.mongodb import get_db
 
@@ -50,6 +50,7 @@ from shared.services.audit import AuditLogService
 @router.post("/obligations/{obligation_id}/approve")
 async def approve_obligation(
     obligation_id: str,
+    background_tasks: BackgroundTasks,
     current_user: UserOut = Depends(require_role([UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER]))
 ):
     db = get_db()
@@ -66,15 +67,14 @@ async def approve_obligation(
                 
             # Append to Audit Log
             await AuditLogService.append("OBLIGATION_APPROVED", {"obligation_id": obligation_id}, actor=current_user.id, session=sess)
-                
-            # Trigger deterministic task generation
-            task_res = await TaskGenerationAgent.generate_task(obligation_id, session=sess)
-            if "error" in task_res:
-                raise HTTPException(status_code=500, detail=task_res["error"])
-                
-            return {"status": "approved", "obligation_id": obligation_id, "task_id": task_res["task_id"]}
-            
-        return await session.with_transaction(callback)
+            return True
+
+        await session.with_transaction(callback)
+        
+    # Trigger deterministic task generation asynchronously (outside transaction to avoid duplicates on retry)
+    background_tasks.add_task(TaskGenerationAgent.generate_task, obligation_id)
+        
+    return {"status": "approved", "obligation_id": obligation_id, "message": "Task generation queued"}
 
 
 @router.post("/obligations/{obligation_id}/reject")

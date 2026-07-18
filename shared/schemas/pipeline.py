@@ -3,10 +3,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 class PipelineConfig(BaseModel):
-    enable_mock_evidence: bool = True
-    enable_gap_analysis: bool = True
-    enable_audit_report: bool = True
-    enable_knowledge_graph: bool = True
+    pass
 
 class AgentResult(BaseModel):
     agent_name: str

@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
-  timeout: 120000, // 2 min — pipelines can be slow
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
+  timeout: 600000, // 10 min — pipelines can be slow
 });
 
 API.interceptors.response.use(
@@ -27,6 +27,11 @@ export async function runPipeline(text, file, title = "Uploaded Document") {
   formData.append('enable_mock_evidence', 'true');
   formData.append('enable_knowledge_graph', 'true');
   const { data } = await API.post('/pipeline/run', formData);
+  return data;
+}
+
+export async function getPipelineStatus(executionId) {
+  const { data } = await API.get(`/pipeline/status/${executionId}`);
   return data;
 }
 
@@ -78,5 +83,10 @@ export async function getDashboard(documentId) {
 
 export async function getReport(documentId) {
   const { data } = await API.get('/report', { params: { document_id: documentId } });
+  return data;
+}
+
+export async function getGaps() {
+  const { data } = await API.get('/gaps');
   return data;
 }

@@ -50,6 +50,29 @@ async def get_dashboard(
         }
     }
 
+@router.get("/gaps")
+async def get_mock_gaps(current_user: UserOut = Depends(get_current_user)):
+    from datetime import datetime, timedelta
+    now = datetime.utcnow()
+    return [
+        {
+            "id": "gap-1",
+            "gap_type": "Missing Evidence",
+            "description": "No BCP/DR Test Log uploaded for Q3.",
+            "detected_at": (now - timedelta(days=2)).isoformat(),
+            "severity": "High",
+            "resolved": False
+        },
+        {
+            "id": "gap-2",
+            "gap_type": "Stale Task",
+            "description": "KYC review task overdue by 14 days.",
+            "detected_at": (now - timedelta(days=5)).isoformat(),
+            "severity": "Medium",
+            "resolved": False
+        }
+    ]
+
 @router.get("/report")
 async def get_report(document_id: str):
     db = get_db()

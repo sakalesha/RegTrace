@@ -21,6 +21,7 @@ class ExecutionContext(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     
     execution_id: str
+    triggered_by: Optional[str] = None
     document_id: Optional[str] = None
     config: PipelineConfig = Field(default_factory=PipelineConfig)
     

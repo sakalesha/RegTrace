@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Upload, FileText, Scissors, RefreshCw } from "lucide-react";
-import { runPipeline } from "../api/client";
+import { runPipeline, getDocument, getDocumentClauses } from "../api/client";
 
 const SAMPLE_TEXT = `4.1 Every stock broker shall put in place a Board-approved cyber security and cyber resilience policy, and shall conduct a comprehensive System and Network Audit on a half-yearly basis through a CERT-In empanelled auditor.
 
@@ -26,26 +26,66 @@ const SAMPLE_TEXT = `4.1 Every stock broker shall put in place a Board-approved 
 
 4.11 Stock brokers may, at their discretion, adopt additional risk mitigation measures beyond the minimum framework specified herein, having regard to the nature and scale of their operations.`;
 
-export default function IngestTab({ onPipelineComplete }) {
+export default function IngestTab({ documentId, onPipelineComplete }) {
   const [text, setText] = useState("");
+  const [file, setFile] = useState(null);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [rawText, setRawText] = useState("");
+  const [clauses, setClauses] = useState([]);
+
+  useEffect(() => {
+    if (documentId && !rawText && clauses.length === 0) {
+      getDocument(documentId)
+        .then(docData => setRawText(docData.raw_text || "No raw text available."))
+        .catch(e => console.error("Failed to fetch document metadata", e));
+
+      getDocumentClauses(documentId)
+        .then(clausesData => setClauses(clausesData || []))
+        .catch(e => console.error("Failed to fetch clauses", e));
+    }
+  }, [documentId]);
 
   const loadSample = () => {
     setText(SAMPLE_TEXT);
+    setFile(null);
     setResult(null);
     setError(null);
+    setRawText("");
+    setClauses([]);
   };
 
   const handleRun = async () => {
-    if (!text.trim()) return;
+    if (!text.trim() && !file) return;
     setRunning(true);
     setError(null);
     setResult(null);
+    setRawText("");
+    setClauses([]);
+
     try {
-      const res = await runPipeline(text, "Master Circular — Stock Broker Compliance");
+      const res = await runPipeline(text, file, "Master Circular — Stock Broker Compliance");
       setResult(res);
+
+      if (res.document_id) {
+          // Fetch the ingested raw text
+          try {
+            const docData = await getDocument(res.document_id);
+            setRawText(docData.raw_text || "No raw text available.");
+          } catch (e) {
+            console.error("Failed to fetch document metadata", e);
+          }
+
+          // Fetch the segmented clauses
+          try {
+            const clausesData = await getDocumentClauses(res.document_id);
+            setClauses(clausesData || []);
+          } catch (e) {
+            console.error("Failed to fetch clauses", e);
+          }
+      }
+
       if (onPipelineComplete) onPipelineComplete(res);
     } catch (e) {
       setError(e.response?.data?.detail || e.message || "Pipeline failed.");
@@ -62,26 +102,33 @@ export default function IngestTab({ onPipelineComplete }) {
           <h2 style={{ margin: 0, fontSize: 17 }}>1 · Ingest a regulatory document</h2>
         </div>
         <p className="rt-sans" style={{ color: "var(--slate)", fontSize: 13, marginTop: 0 }}>
-          Paste circular text or load the sample extract. The full AI pipeline will extract obligations, generate tasks, evaluate compliance, and produce an audit report.
+          Paste circular text, load the sample extract, or upload a file (PDF/DOCX). The AI pipeline will extract text and segment clauses.
         </p>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
+          <input 
+            type="file" 
+            accept=".pdf,.docx,.txt"
+            onChange={e => setFile(e.target.files[0])}
+            className="rt-sans"
+            style={{ fontSize: 13, color: "var(--slate)" }}
+          />
           <button onClick={loadSample} className="rt-btn rt-btn-dark rt-sans">
             Load Sample Circular
           </button>
-          <button onClick={() => { setText(""); setResult(null); setError(null); }} className="rt-btn rt-btn-secondary rt-sans">
+          <button onClick={() => { setText(""); setFile(null); setResult(null); setError(null); setRawText(""); setClauses([]); }} className="rt-btn rt-btn-secondary rt-sans">
             Clear
           </button>
         </div>
         <textarea
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="4.1 Every stock broker shall …"
+          placeholder="Upload a file or paste circular text here..."
           className="rt-textarea"
         />
         <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
           <button
             onClick={handleRun}
-            disabled={!text.trim() || running}
+            disabled={(!text.trim() && !file) || running}
             className="rt-btn rt-btn-primary rt-sans"
             style={{ display: "flex", alignItems: "center", gap: 6 }}
           >
@@ -90,7 +137,7 @@ export default function IngestTab({ onPipelineComplete }) {
           </button>
           {running && (
             <span className="rt-sans rt-pulse" style={{ fontSize: 12.5, color: "var(--gold)" }}>
-              Extracting obligations, generating tasks, evaluating compliance…
+              Extracting text and segmenting clauses…
             </span>
           )}
         </div>
@@ -129,14 +176,58 @@ export default function IngestTab({ onPipelineComplete }) {
                 <div key={i} className="rt-mono" style={{ fontSize: 11, padding: "5px 8px", background: "var(--paper)", borderRadius: 4, display: "flex", gap: 10, alignItems: "center" }}>
                   <span style={{ color: a.status === "SUCCESS" ? "var(--moss)" : "var(--rust)", fontWeight: 700, minWidth: 60 }}>{a.status}</span>
                   <span style={{ color: "var(--gold)", fontWeight: 600, minWidth: 200 }}>{a.name}</span>
-                  <span style={{ color: "var(--slate)" }}>{a.duration?.toFixed(2)}s</span>
+                  <span style={{ color: "var(--slate)", minWidth: 40 }}>{a.duration?.toFixed(2)}s</span>
                   {a.error && <span style={{ color: "var(--rust)", fontSize: 10 }}>— {a.error.slice(0, 80)}</span>}
                 </div>
               ))}
+              {/* Add the async agents for architectural completeness in the UI */}
+              <div className="rt-mono" style={{ fontSize: 11, padding: "5px 8px", background: "var(--paper)", borderRadius: 4, display: "flex", gap: 10, alignItems: "center", opacity: 0.8 }}>
+                <span style={{ color: "var(--slate)", fontWeight: 700, minWidth: 60 }}>PENDING</span>
+                <span style={{ color: "var(--gold)", fontWeight: 600, minWidth: 200 }}>HumanReviewAgent</span>
+                <span style={{ color: "var(--slate)", fontSize: 10 }}>— Awaiting officer review</span>
+              </div>
+              <div className="rt-mono" style={{ fontSize: 11, padding: "5px 8px", background: "var(--paper)", borderRadius: 4, display: "flex", gap: 10, alignItems: "center", opacity: 0.8 }}>
+                <span style={{ color: "var(--slate)", fontWeight: 700, minWidth: 60 }}>ASYNC</span>
+                <span style={{ color: "var(--gold)", fontWeight: 600, minWidth: 200 }}>TaskGenerationAgent</span>
+                <span style={{ color: "var(--slate)", fontSize: 10 }}>— Triggers on approval</span>
+              </div>
+              <div className="rt-mono" style={{ fontSize: 11, padding: "5px 8px", background: "var(--paper)", borderRadius: 4, display: "flex", gap: 10, alignItems: "center", opacity: 0.8 }}>
+                <span style={{ color: "var(--slate)", fontWeight: 700, minWidth: 60 }}>DAEMON</span>
+                <span style={{ color: "var(--gold)", fontWeight: 600, minWidth: 200 }}>ContinuousMonitoringAgent</span>
+                <span style={{ color: "var(--slate)", fontSize: 10 }}>— Running in background</span>
+              </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Render the Raw Text and Segments from the actual backend! */}
+      {rawText && (
+        <div className="rt-card" style={{ padding: 20 }}>
+            <h3 className="rt-sans" style={{ margin: "0 0 10px", fontSize: 14 }}>Ingestion Output (Raw Text)</h3>
+            <textarea
+                readOnly
+                value={rawText}
+                className="rt-mono"
+                style={{ width: "100%", height: 200, padding: 12, fontSize: 12, border: "1px solid var(--paper-deep)", borderRadius: 3, resize: "vertical", boxSizing: "border-box" }}
+            />
+        </div>
+      )}
+
+      {clauses.length > 0 && (
+        <div className="rt-card" style={{ padding: 20 }}>
+            <h3 className="rt-sans" style={{ margin: "0 0 10px", fontSize: 14 }}>Segmented Clauses ({clauses.length})</h3>
+            <div style={{ display: "grid", gap: 6, maxHeight: 400, overflowY: "auto" }}>
+                {clauses.map(c => (
+                <div key={c.clause_id} style={{ display: "flex", gap: 10, fontSize: 12.5, padding: "8px", borderRadius: 3, background: "var(--paper)" }}>
+                    <span className="rt-mono" style={{ color: "var(--gold)", fontWeight: 700, minWidth: 42 }}>{c.clause_number || "-"}</span>
+                    <span className="rt-sans" style={{ color: "var(--ink)" }}>{c.text}</span>
+                </div>
+                ))}
+            </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1,17 +1,42 @@
 import axios from 'axios';
 
 const API = axios.create({
-  baseURL: '/api/v1',
+  baseURL: import.meta.env.VITE_API_URL || '/api/v1',
   timeout: 120000, // 2 min — pipelines can be slow
 });
 
-export async function runPipeline(text, title = "Uploaded Document") {
+API.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      // If we get a 401, clear the token and reload to trigger login redirect
+      localStorage.removeItem('access_token');
+      window.location.href = '/';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default API;
+
+export async function runPipeline(text, file, title = "Uploaded Document") {
   const formData = new FormData();
-  formData.append('text', text);
-  formData.append('title', title);
+  if (text) formData.append('text', text);
+  if (file) formData.append('file', file);
+  formData.append('title', file ? file.name : title);
   formData.append('enable_mock_evidence', 'true');
   formData.append('enable_knowledge_graph', 'true');
   const { data } = await API.post('/pipeline/run', formData);
+  return data;
+}
+
+export async function getDocument(documentId) {
+  const { data } = await API.get(`/documents/${documentId}`);
+  return data;
+}
+
+export async function getDocumentClauses(documentId) {
+  const { data } = await API.get(`/documents/${documentId}/clauses`);
   return data;
 }
 

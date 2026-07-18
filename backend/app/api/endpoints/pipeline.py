@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, Form, HTTPException
+from fastapi import APIRouter, File, UploadFile, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from typing import Optional
 import uuid
@@ -8,10 +8,14 @@ from shared.schemas.document import DocumentMetadataInput
 from shared.schemas.pipeline import ExecutionContext, PipelineConfig
 from agents.orchestrator import OrchestratorAgent
 
+from backend.app.auth.dependencies import get_current_user, require_role
+from backend.app.auth.models import UserOut, UserRole
+
 router = APIRouter()
 
 @router.post("/pipeline/run")
 async def run_pipeline(
+    current_user: UserOut = Depends(require_role([UserRole.ADMIN, UserRole.COMPLIANCE_OFFICER])),
     file: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
     title: Optional[str] = Form(None),
@@ -37,6 +41,7 @@ async def run_pipeline(
     
     context = ExecutionContext(
         execution_id=execution_id,
+        triggered_by=current_user.id,
         config=PipelineConfig(
             enable_mock_evidence=enable_mock_evidence,
             enable_knowledge_graph=enable_knowledge_graph

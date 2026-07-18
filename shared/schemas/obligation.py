@@ -3,32 +3,42 @@ from typing import Optional, List
 from datetime import datetime
 
 class Obligation(BaseModel):
+    # Core extraction fields returned by LLM
+    is_obligation: bool = Field(description="True if the clause contains an actual obligation or requirement.")
+    obligation_text: Optional[str] = Field(None, description="The extracted text summarizing the core obligation.")
+    applicable_entity: Optional[str] = Field(None, description="The entity required to perform the action (e.g., Stock Broker, Trading Member).")
+    deadline: Optional[str] = Field(None, description="The deadline or timeline for the action.")
+    frequency: Optional[str] = Field(None, description="How often the action must be performed (e.g., quarterly, half-yearly).")
+    evidence_type: Optional[str] = Field(None, description="The type of evidence or artifact to be produced (e.g., audit report, policy).")
+    penalty_referenced: bool = Field(False, description="True if a penalty or disciplinary action is referenced.")
+    cross_reference_targets: List[str] = Field(default_factory=list, description="Other clauses or annexures referenced in this text.")
+    llm_confidence: float = Field(default=1.0, ge=0.0, le=1.0, description="The model's self-reported confidence (0.0 to 1.0).")
+    extraction_notes: List[str] = Field(default_factory=list, description="Concise explanations of why fields were extracted.")
+    
+    # Internal DB/tracking fields (Added by the Agent, not the LLM)
     obligation_id: Optional[str] = None
-    document_id: Optional[str] = None
-    chunk_id: Optional[str] = None
+    clause_id: Optional[str] = None
+    circular_id: Optional[str] = None
+    clause_number: Optional[str] = None
+    extraction_run_id: Optional[str] = None
     
-    title: str
-    description: str
+    # Phase 2: Grounding and Quality fields
+    grounding_score: float = Field(1.0, description="1.0 means all extracted fields were found in text. Lower means possible hallucination.")
+    ambiguity_flags: List[str] = Field(default_factory=list, description="List of hallucinated fields or logic issues.")
+    parent_clause_used: bool = Field(False, description="True if the parent clause text was required to parse this.")
     
-    actor: str
-    action: str
-    object: str
+    confidence: Optional[float] = Field(None, description="Composite confidence score calculated via rules + LLM confidence.")
     
-    condition: Optional[str] = None
-    frequency: Optional[str] = None
-    deadline: Optional[str] = None
+    status: str = "PENDING_VALIDATION"
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
     
-    severity: str = "MEDIUM"
-    category: str = "GENERAL"
-    evidence_required: Optional[str] = None
-    
-    confidence: float = Field(ge=0.0, le=1.0)
-    
-    page_number: Optional[int] = None
-    heading: Optional[str] = None
-    section: Optional[str] = None
-    
+    model_version: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-class ObligationExtractionResult(BaseModel):
+class ClauseExtractionResult(BaseModel):
+    clause_id: str
     obligations: List[Obligation]
+
+class BatchExtractionResult(BaseModel):
+    results: List[ClauseExtractionResult]

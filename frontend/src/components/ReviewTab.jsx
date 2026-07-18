@@ -88,17 +88,25 @@ export default function ReviewTab({ documentId }) {
                 </span>
               </div>
 
-              <p className="rt-sans" style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{ob.title}</p>
-              <p style={{ margin: "0 0 8px", fontSize: 13.5, lineHeight: 1.5 }}>{ob.description}</p>
+              <p className="rt-sans" style={{ margin: "0 0 6px", fontSize: 14, fontWeight: 600, color: "var(--ink)" }}>{ob.title || "Compliance Obligation"}</p>
+              <p style={{ margin: "0 0 8px", fontSize: 13.5, lineHeight: 1.5 }}>{ob.obligation_text || ob.description}</p>
 
-              <div className="rt-sans" style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--slate)", flexWrap: "wrap" }}>
-                <span>Actor: <b style={{ color: "var(--ink)" }}>{ob.actor}</b></span>
-                <span>Action: <b style={{ color: "var(--ink)" }}>{ob.action}</b></span>
-                <span>Object: <b style={{ color: "var(--ink)" }}>{ob.object}</b></span>
+              <div className="rt-sans" style={{ display: "flex", gap: 14, fontSize: 12, color: "var(--slate)", flexWrap: "wrap", marginBottom: 8 }}>
+                <span>Entity: <b style={{ color: "var(--ink)" }}>{ob.applicable_entity || ob.actor || "N/A"}</b></span>
                 {ob.frequency && <span>Freq: <b style={{ color: "var(--ink)" }}>{ob.frequency}</b></span>}
                 {ob.deadline && <span>Deadline: <b style={{ color: "var(--ink)" }}>{ob.deadline}</b></span>}
-                {ob.page_number && <span>Page: <b style={{ color: "var(--ink)" }}>{ob.page_number}</b></span>}
+                {ob.evidence_type && <span>Evidence: <b style={{ color: "var(--ink)" }}>{ob.evidence_type}</b></span>}
+                {ob.clause_number && <span>Clause: <b style={{ color: "var(--ink)" }}>{ob.clause_number}</b></span>}
               </div>
+
+              {ob.ambiguity_flags && ob.ambiguity_flags.length > 0 && (
+                <div style={{ marginTop: 10, padding: "8px 12px", background: "#fef2f2", borderLeft: "3px solid var(--rust)", borderRadius: 4, display: "flex", gap: 8, alignItems: "center" }}>
+                  <AlertTriangle size={14} color="var(--rust)" />
+                  <div className="rt-sans" style={{ fontSize: 12, color: "var(--rust)" }}>
+                    <b>Possible Hallucination:</b> {ob.ambiguity_flags.join(", ").replace(/_not_found/g, " not found")}
+                  </div>
+                </div>
+              )}
             </div>
 
             {ob.status === "PENDING_VALIDATION" && (

@@ -1,10 +1,15 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from shared.database.mongodb import get_db
+from backend.app.auth.dependencies import get_current_user
+from backend.app.auth.models import UserOut
 
 router = APIRouter()
 
 @router.get("/dashboard")
-async def get_dashboard(document_id: str = None):
+async def get_dashboard(
+    current_user: UserOut = Depends(get_current_user),
+    document_id: str = None
+):
     db = get_db()
     query = {}
     if document_id:
@@ -13,13 +18,13 @@ async def get_dashboard(document_id: str = None):
     obligations = await db.obligations.find(query).to_list(length=1000)
     tasks = await db.compliance_tasks.find(query).to_list(length=1000)
     evaluations = await db.evaluations.find(query).to_list(length=1000)
-    gaps = await db.gaps.find(query).to_list(length=1000)
+    gaps = await db.compliance_gaps.find(query).to_list(length=1000)
     
     return {
         "obligations": {
             "total": len(obligations),
-            "validated": len([o for o in obligations if o.get("status") == "VALIDATED"]),
-            "pending": len([o for o in obligations if o.get("status") == "PENDING_VALIDATION"]),
+            "validated": len([o for o in obligations if o.get("status") in ["VALIDATED", "APPROVED"]]),
+            "pending": len([o for o in obligations if o.get("status") in ["PENDING_VALIDATION", "PENDING"]]),
             "rejected": len([o for o in obligations if o.get("status") == "REJECTED"]),
             "avg_confidence": round(
                 sum(o.get("confidence", 0) for o in obligations) / max(len(obligations), 1), 2
@@ -27,9 +32,9 @@ async def get_dashboard(document_id: str = None):
         },
         "tasks": {
             "total": len(tasks),
-            "assigned": len([t for t in tasks if t.get("status") == "ASSIGNED"]),
+            "open": len([t for t in tasks if t.get("status") == "OPEN"]),
             "completed": len([t for t in tasks if t.get("status") == "COMPLETED"]),
-            "pending": len([t for t in tasks if t.get("status") == "PENDING_ASSIGNMENT"])
+            "overdue": len([t for t in tasks if t.get("status") == "OVERDUE"])
         },
         "evaluations": {
             "total": len(evaluations),
@@ -39,9 +44,9 @@ async def get_dashboard(document_id: str = None):
         },
         "gaps": {
             "total": len(gaps),
-            "high_risk": len([g for g in gaps if g.get("risk") == "HIGH"]),
-            "medium_risk": len([g for g in gaps if g.get("risk") == "MEDIUM"]),
-            "low_risk": len([g for g in gaps if g.get("risk") == "LOW"])
+            "missing_task": len([g for g in gaps if g.get("gap_type") == "missing_task_for_approved_obligation"]),
+            "stale_deadline": len([g for g in gaps if g.get("gap_type") == "unassigned_deadline_stale"]),
+            "unresolved": len([g for g in gaps if not g.get("resolved")])
         }
     }
 

@@ -145,6 +145,7 @@ const TABS = [
 export default function RegTraceApp() {
   const [tab, setTab] = useState("ingest");
   const [circularText, setCircularText] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
   const [clauses, setClauses] = useState([]);
   const [obligations, setObligations] = useState([]); // status: pending/approved/rejected
   const [tasks, setTasks] = useState([]);
@@ -173,33 +174,83 @@ export default function RegTraceApp() {
 
   const loadSample = () => {
     setCircularText(SAMPLE_CIRCULAR.text);
+    setSelectedFile(null);
     appendAudit("CIRCULAR_LOADED", { title: SAMPLE_CIRCULAR.title });
   };
 
-  const runIngestion = () => {
-    if (!circularText.trim()) return;
+  const runIngestion = async () => {
+    if (!circularText.trim() && !selectedFile) return;
     setRunning(true);
-    setTimeout(() => {
-      const segs = segmentClauses(circularText);
-      setClauses(segs);
-      appendAudit("CLAUSES_SEGMENTED", { count: segs.length });
+    
+    try {
+        let textToSegment = circularText;
+        let finalClauses = [];
 
-      const extracted = [];
-      segs.forEach(cl => {
-        const ob = extractObligation(cl);
-        if (ob) {
-          extracted.push({
-            id: `ob-${cl.number}`,
-            status: "pending",
-            ...ob,
-          });
+        if (selectedFile) {
+            const formData = new FormData();
+            formData.append("file", selectedFile);
+            formData.append("title", selectedFile.name);
+
+            // 1. Run pipeline (Ingestion + Segmentation)
+            const res = await fetch("http://localhost:8000/api/v1/pipeline/run", {
+                method: "POST",
+                body: formData
+            });
+            if (!res.ok) throw new Error("Pipeline request failed");
+            const data = await res.json();
+            const docId = data.document_id;
+
+            // 2. Fetch raw text from Ingestion
+            const docRes = await fetch(`http://localhost:8000/api/v1/documents/${docId}`);
+            if (!docRes.ok) throw new Error("Failed to fetch document metadata");
+            const docData = await docRes.json();
+            textToSegment = docData.raw_text || "No text extracted.";
+            setCircularText(textToSegment);
+
+            // 3. Fetch structured clauses from Segmentation Agent
+            const clauseRes = await fetch(`http://localhost:8000/api/v1/documents/${docId}/clauses`);
+            if (!clauseRes.ok) throw new Error("Failed to fetch clauses");
+            const clausesData = await clauseRes.json();
+            
+            finalClauses = clausesData.map(c => ({
+                id: c.clause_id,
+                number: c.clause_number || "-",
+                text: c.text
+            }));
+            
+            appendAudit("PIPELINE_RUN", { executionId: data.execution_id });
+        } else {
+            // Fallback to client-side mock segmentation if just pasted text
+            finalClauses = segmentClauses(textToSegment);
         }
-      });
-      setObligations(extracted);
-      appendAudit("OBLIGATIONS_EXTRACTED", { count: extracted.length, clausesScanned: segs.length });
-      setRunning(false);
-      setTab("review");
-    }, 550);
+
+        setClauses(finalClauses);
+        appendAudit("CLAUSES_SEGMENTED", { count: finalClauses.length });
+
+        // Mock Obligation Extraction on the real clauses
+        const extracted = [];
+        finalClauses.forEach(cl => {
+            const ob = extractObligation(cl);
+            if (ob) {
+                extracted.push({
+                    id: `ob-${cl.id}`,
+                    status: "pending",
+                    ...ob,
+                });
+            }
+        });
+        
+        setObligations(extracted);
+        appendAudit("OBLIGATIONS_EXTRACTED", { count: extracted.length, clausesScanned: finalClauses.length });
+        
+        setRunning(false);
+        setTab("review");
+
+    } catch (err) {
+        console.error(err);
+        alert("Pipeline failed: " + err.message);
+        setRunning(false);
+    }
   };
 
   const approveObligation = (ob) => {
@@ -328,24 +379,31 @@ export default function RegTraceApp() {
               <p className="rt-sans" style={{ color: SLATE, fontSize: 13, marginTop: 0 }}>
                 Paste circular text (clause-numbered) or load the sample extract used for this demo. Clause segmentation runs on numbering patterns (e.g. "4.1", "4.1.1").
               </p>
-              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10, alignItems: "center" }}>
+                <input 
+                  type="file" 
+                  accept=".pdf,.docx,.txt"
+                  onChange={e => setSelectedFile(e.target.files[0])}
+                  className="rt-sans"
+                  style={{ fontSize: 13, color: SLATE }}
+                />
                 <button onClick={loadSample} className="rt-btn rt-sans" style={{ background: INK, color: "#fff", border: "none", padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>
                   Load Sample Circular
                 </button>
-                <button onClick={() => setCircularText("")} className="rt-btn rt-sans" style={{ background: "#fff", color: INK, border: `1px solid ${PAPER_DEEP}`, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>
+                <button onClick={() => { setCircularText(""); setSelectedFile(null); }} className="rt-btn rt-sans" style={{ background: "#fff", color: INK, border: `1px solid ${PAPER_DEEP}`, padding: "8px 14px", fontSize: 13, cursor: "pointer" }}>
                   Clear
                 </button>
               </div>
               <textarea
                 value={circularText}
                 onChange={e => setCircularText(e.target.value)}
-                placeholder="4.1 Every stock broker shall …"
+                placeholder="Upload a file or paste circular text..."
                 className="rt-mono"
                 style={{ width: "100%", minHeight: 220, padding: 12, fontSize: 12.5, border: `1px solid ${PAPER_DEEP}`, borderRadius: 3, resize: "vertical", boxSizing: "border-box" }}
               />
               <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10 }}>
-                <button onClick={runIngestion} disabled={!circularText.trim() || running} className="rt-btn rt-sans"
-                  style={{ background: GOLD, color: "#fff", border: "none", padding: "10px 18px", fontSize: 13.5, cursor: circularText.trim() ? "pointer" : "not-allowed", opacity: circularText.trim() ? 1 : 0.5, display: "flex", alignItems: "center", gap: 6 }}>
+                <button onClick={runIngestion} disabled={(!circularText.trim() && !selectedFile) || running} className="rt-btn rt-sans"
+                  style={{ background: GOLD, color: "#fff", border: "none", padding: "10px 18px", fontSize: 13.5, cursor: (!circularText.trim() && !selectedFile) ? "not-allowed" : "pointer", opacity: (!circularText.trim() && !selectedFile) ? 0.5 : 1, display: "flex", alignItems: "center", gap: 6 }}>
                   {running ? <RefreshCw size={14} className="rt-spin" /> : <Scissors size={14} />}
                   {running ? "Segmenting & extracting…" : "Segment Clauses & Extract Obligations"}
                 </button>

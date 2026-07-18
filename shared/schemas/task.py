@@ -10,17 +10,21 @@ class ComplianceTask(BaseModel):
     title: str
     description: str
     
+    owner_role: str = "Compliance Officer"
     owner: Optional[str] = None
     department: Optional[str] = None
     
     priority: str = "MEDIUM" # HIGH, MEDIUM, LOW
-    status: str = "PENDING_ASSIGNMENT"
+    status: str = "OPEN"
     
+    frequency: Optional[str] = None
     deadline: Optional[str] = None
     estimated_effort: Optional[str] = None
     
     dependencies: List[str] = Field(default_factory=list) # List of task titles this task depends on
-    required_evidence: Optional[str] = None
+    evidence_required: Optional[str] = None
+    
+    trace: Optional[dict] = None
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
 

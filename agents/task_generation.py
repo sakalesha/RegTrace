@@ -1,73 +1,95 @@
 import uuid
-import asyncio
+from datetime import datetime
 from shared.database.mongodb import get_db
-from shared.schemas.pipeline import ExecutionContext
-from shared.schemas.task import TaskGenerationResult
-from agents.base import BaseAgent
-from shared.services.llm import LLMService
-from shared.prompts.task_generation_prompt import TASK_GENERATION_SYSTEM_PROMPT, TASK_GENERATION_HUMAN_PROMPT
+from shared.schemas.task import ComplianceTask
 from shared.services.logger import Logger
 
-class TaskGenerationAgent(BaseAgent):
+class TaskGenerationAgent:
+    """
+    Deterministically converts an approved obligation into an operational compliance task.
+    Does NOT use an LLM, as the obligation has already been validated by a human.
+    """
 
     @classmethod
-    async def execute(cls, context: ExecutionContext) -> ExecutionContext:
-        document_id = context.document_id
-        Logger.info("TaskGenerationAgent", f"Started for {document_id}")
+    async def generate_task(cls, obligation_id: str) -> dict:
+        Logger.info("TaskGenerationAgent", f"Generating task for approved obligation {obligation_id}")
         db = get_db()
         
-        # 1. Fetch validated obligations
-        obligations = await db.obligations.find({"document_id": document_id, "status": "VALIDATED"}).to_list(length=None)
+        # 1. Fetch obligation
+        obligation = await db.obligations.find_one({"obligation_id": obligation_id})
         
-        if not obligations:
-            Logger.warning("TaskGenerationAgent", f"No validated obligations found for {document_id}")
-            return context
+        if not obligation:
+            Logger.error("TaskGenerationAgent", f"Obligation {obligation_id} not found.")
+            return {"error": "Obligation not found"}
             
-        Logger.info("TaskGenerationAgent", f"Generating tasks for {len(obligations)} obligations...")
-        
-        all_tasks = []
-        
-        async def process_obligation(ob):
-            try:
-                result = await LLMService.generate_structured(
-                    system_prompt=TASK_GENERATION_SYSTEM_PROMPT,
-                    human_prompt=TASK_GENERATION_HUMAN_PROMPT,
-                    schema=TaskGenerationResult,
-                    input_vars={
-                        "title": ob.get("title", ""),
-                        "description": ob.get("description", ""),
-                        "actor": ob.get("actor", ""),
-                        "action": ob.get("action", ""),
-                        "object": ob.get("object", ""),
-                        "deadline": ob.get("deadline", "")
-                    }
-                )
-                
-                tasks = []
-                for t in result.tasks:
-                    doc = t.model_dump()
-                    doc["task_id"] = f"TSK-{uuid.uuid4().hex[:8].upper()}"
-                    doc["document_id"] = document_id
-                    doc["obligation_id"] = ob["obligation_id"]
-                    doc["status"] = "PENDING_ASSIGNMENT"
-                    tasks.append(doc)
-                return tasks
-            except Exception as e:
-                Logger.error("TaskGenerationAgent", f"Failed to generate tasks for obligation {ob.get('obligation_id')}", exc=e)
-                return []
+        if obligation.get("status") not in ["APPROVED", "VALIDATED", "EDITED"]:
+            Logger.warning("TaskGenerationAgent", f"Obligation {obligation_id} does not have an approved status (current: {obligation.get('status')})")
+            return {"error": "Obligation is not approved"}
 
-        results = await asyncio.gather(*[process_obligation(ob) for ob in obligations])
+        # 2. Extract deterministic fields
+        ob_text = obligation.get("obligation_text", obligation.get("description", ""))
+        clause_number = obligation.get("clause_number", "Unknown Clause")
+        evidence = obligation.get("evidence_type", "None specified")
         
-        for r_list in results:
-            all_tasks.extend(r_list)
-            
-        if not all_tasks:
-            Logger.warning("TaskGenerationAgent", "No tasks generated.")
-            return context
-            
-        # 4. Store in MongoDB
-        await db.compliance_tasks.insert_many(all_tasks)
+        # Determine Title (truncate up to 80 chars cleanly)
+        title = ob_text
+        if len(title) > 80:
+            last_space = title.rfind(' ', 0, 80)
+            if last_space > 0:
+                title = title[:last_space] + "..."
+            else:
+                title = title[:77] + "..."
+                
+        # Determine Description
+        description = f"Obligation:\n{ob_text}\n\nClause Reference:\n{clause_number}\n\nEvidence Required:\n{evidence}"
         
-        Logger.info("TaskGenerationAgent", f"Finished for {document_id}. Created {len(all_tasks)} actionable tasks.")
+        # Priority mapping
+        priority = "MEDIUM"
+        if obligation.get("penalty_referenced"):
+            priority = "HIGH"
+
+        # 3. Create Task Object
+        task = ComplianceTask(
+            task_id=f"TSK-{uuid.uuid4().hex[:8].upper()}",
+            document_id=obligation.get("circular_id", obligation.get("document_id")),
+            obligation_id=obligation_id,
+            title=title,
+            description=description,
+            owner_role="Compliance Officer",
+            priority=priority,
+            status="OPEN",
+            frequency=obligation.get("frequency"),
+            deadline=obligation.get("deadline"),
+            evidence_required=obligation.get("evidence_type"),
+            trace={
+                "document_id": obligation.get("circular_id", obligation.get("document_id")),
+                "clause_id": obligation.get("clause_id"),
+                "obligation_id": obligation_id,
+                "review_id": None # MVP: Can be extended when tracking specific reviewer sessions
+            },
+            created_at=datetime.utcnow()
+        )
         
-        return context
+        task_dict = task.model_dump()
+        
+        # 4. Save Task to DB
+        await db.compliance_tasks.insert_one(task_dict)
+        
+        # 5. Link Task back to Obligation
+        await db.obligations.update_one(
+            {"obligation_id": obligation_id},
+            {"$set": {"task_id": task.task_id}}
+        )
+        
+        from shared.services.audit import AuditLogService
+        await AuditLogService.append("TASK_CREATED", {
+            "task_id": task.task_id, 
+            "obligation_id": obligation_id
+        })
+        
+        Logger.info("TaskGenerationAgent", f"Successfully generated task {task.task_id} for obligation {obligation_id}")
+        
+        return {
+            "task_id": task.task_id,
+            "obligation_id": obligation_id
+        }

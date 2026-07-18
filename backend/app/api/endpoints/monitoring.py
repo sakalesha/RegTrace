@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from datetime import datetime, timedelta
 from shared.database.mongodb import get_db
 from agents.continuous_monitoring import ContinuousMonitoringAgent

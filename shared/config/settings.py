@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 
 class Settings(BaseSettings):
     # MongoDB
@@ -18,6 +19,13 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     
     demo_mode: bool = True
+    
+    @field_validator('mongodb_db_name', 'mongodb_uri', mode='before')
+    @classmethod
+    def strip_quotes(cls, v):
+        if isinstance(v, str):
+            return v.strip(' "\'')
+        return v
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Secrets — never commit
+.env
+.env.*
+
+# Runtime data (uploads, temp files)
+data/

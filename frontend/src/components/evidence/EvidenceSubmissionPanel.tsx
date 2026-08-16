@@ -58,7 +58,7 @@ export function EvidenceSubmissionPanel({ task, onSubmit }: EvidenceSubmissionPa
             Evidence Required
           </span>
           <ul className="flex flex-wrap gap-1.5">
-            {task.evidence_required.map(item => (
+            {task.evidence_required.map((item: any) => (
               <li key={item} className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
                 {item}
               </li>

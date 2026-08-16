@@ -228,7 +228,7 @@ export function useClauseExplorer(documentId: string) {
       // Branch node logic
       const filteredChildren = node.children
         .map(filterNode)
-        .filter((child): child is ClauseNode => child !== null);
+        .filter((child: any): child is ClauseNode => child !== null);
 
       if (filteredChildren.length > 0 || (searchMatch && obligationsMatch && confidenceMatch)) {
         return {

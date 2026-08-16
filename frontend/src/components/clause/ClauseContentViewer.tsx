@@ -29,7 +29,7 @@ export function ClauseContentViewer({ clause }: ClauseContentViewerProps) {
       
       <div className="prose prose-sm md:prose-base max-w-none text-foreground/90 leading-relaxed">
         {/* Render text faithfully as extracted */}
-        {clause.text.split('\n').map((paragraph, index) => (
+        {clause.text.split('\n').map((paragraph: any, index: any) => (
           <p key={index} className="mb-4">{paragraph}</p>
         ))}
       </div>

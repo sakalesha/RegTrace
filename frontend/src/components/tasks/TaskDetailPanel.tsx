@@ -51,7 +51,7 @@ export function TaskDetailPanel({ task, onStatusChange, onAssign }: TaskDetailPa
             <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">Evidence Required</span>
             {task.evidence_required.length > 0 ? (
               <ul className="mt-1 space-y-1 text-muted-foreground">
-                {task.evidence_required.map(item => (
+                {task.evidence_required.map((item: any) => (
                   <li key={item} className="flex items-start gap-1.5">
                     <span className="text-primary mt-1">•</span>
                     {item}

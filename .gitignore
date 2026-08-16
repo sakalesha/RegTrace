@@ -8,8 +8,9 @@ __pycache__/
 .pytest_cache/
 .venv/
 
-# Runtime data
-data/
+# Runtime data (backend only; frontend/src/data is source, not ignored)
+backend/data/
+/data/
 
 # IDE / OS
 .vscode/

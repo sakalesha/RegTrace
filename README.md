@@ -52,25 +52,22 @@ npm run dev
 
 ## Deploying on Vercel
 
-Create **two** Vercel projects from this single repository.
+Deploy the whole repository as a **single Vercel project** using the root
+`vercel.json`. It builds two artifacts:
 
-### 1. Backend (`backend/`)
+- A Python serverless function from `api/index.py` (serving the FastAPI app via
+  Mangum) for everything under `/api/*`.
+- A static build of the Vite frontend from `frontend/` (output `frontend/dist`)
+  for all other routes, with a catch-all rewrite to `index.html` for SPA routing.
 
-- **Root Directory:** `backend`
-- **Build Command:** *(leave empty — handled by `vercel.json`)*
-- **Output:** serverless function (no static output)
-- Add the backend env vars above in the Vercel project settings.
-- `backend/vercel.json` routes all requests to `api/index.py`, which serves the
-  FastAPI app through Mangum (ASGI adapter).
+Setup:
 
-### 2. Frontend (`frontend/`)
-
-- **Root Directory:** `frontend`
-- **Framework Preset:** Vite
-- **Build Command:** `npm run build`
-- **Output Directory:** `dist`
-- Set `VITE_API_URL` to the deployed backend URL (`https://<backend>.vercel.app/api`).
-- `frontend/vercel.json` rewrites all paths to `index.html` for SPA client-side routing.
+1. **Root Directory:** the repository root.
+2. **Framework Preset:** leave as "Other" (the `vercel.json` drives the build).
+3. Add the backend env vars above (`MONGODB_URI`, `DATABASE_NAME`, `CLOUDINARY_*`,
+   `GROQ_API_KEY`) in the Vercel project settings.
+4. Set `VITE_API_URL` to the project's own URL, e.g.
+   `https://<project>.vercel.app/api`, so the frontend calls the bundled backend.
 
 > Note: OCR on scanned PDFs uses `pytesseract`/`pdf2image`, which need the
 > `tesseract` and `poppler` system binaries. These are not available on Vercel, so

@@ -1,4 +1,8 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const rawBase = import.meta.env.VITE_API_URL || '/api';
+const stripped = rawBase.replace(/\/+$/, '');
+// Backend mounts all routes under /api; normalise so VITE_API_URL works
+// whether or not the caller includes the /api suffix.
+const API_BASE_URL = stripped.endsWith('/api') ? stripped : `${stripped}/api`;
 
 export const api = {
   dashboard: {

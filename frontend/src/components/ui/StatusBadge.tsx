@@ -6,9 +6,10 @@ interface StatusBadgeProps {
 }
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
+  const safeStatus = status ?? "";
   let badgeColor = "bg-muted text-muted-foreground border-border";
 
-  switch (status.toLowerCase()) {
+  switch (safeStatus.toLowerCase()) {
     case "processing":
       badgeColor = "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20";
       break;
@@ -38,7 +39,7 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
         className
       )}
     >
-      {status}
+      {safeStatus || "—"}
     </span>
   );
 }

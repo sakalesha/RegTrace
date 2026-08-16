@@ -15,8 +15,9 @@ const statusStyles: Record<string, string> = {
 };
 
 export function TaskStatusBadge({ status, className }: TaskStatusBadgeProps) {
-  const style = statusStyles[status.toUpperCase()] ?? statusStyles.CANCELLED;
-  const label = status.replace(/_/g, " ").toLowerCase().replace(/^\w/, c => c.toUpperCase());
+  const safeStatus = status ?? "";
+  const style = statusStyles[safeStatus.toUpperCase()] ?? statusStyles.CANCELLED;
+  const label = safeStatus.replace(/_/g, " ").toLowerCase().replace(/^\w/, c => c.toUpperCase()) || "Cancelled";
 
   return (
     <span

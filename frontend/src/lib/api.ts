@@ -234,5 +234,23 @@ export const api = {
       if (!response.ok) throw new Error('Failed to fetch compliance obligations');
       return response.json();
     }
+  },
+  gap: {
+    overview: async () => {
+      const response = await fetch(`${API_BASE_URL}/gap/overview`);
+      if (!response.ok) throw new Error('Failed to fetch gap overview');
+      return response.json();
+    },
+    items: async (filters?: { severity?: string; type?: string; department?: string }) => {
+      let url = `${API_BASE_URL}/gap/items`;
+      const params = new URLSearchParams();
+      if (filters?.severity) params.append('severity', filters.severity);
+      if (filters?.type) params.append('type', filters.type);
+      if (filters?.department) params.append('department', filters.department);
+      if (params.toString()) url += `?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch gap items');
+      return response.json();
+    }
   }
 };

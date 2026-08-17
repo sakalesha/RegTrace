@@ -287,8 +287,10 @@ export const api = {
       if (!response.ok) throw new Error('Failed to fetch report');
       return response.json();
     },
-    exportUrl: (reportId: string, format: 'json' | 'pdf' = 'pdf') =>
-      `${API_BASE_URL}/reports/${reportId}/export?format=${format}`,
+    exportUrl: (reportId: string, format: 'json' | 'pdf' = 'pdf', documentId?: string | null) => {
+      const url = `${API_BASE_URL}/reports/${reportId}/export?format=${format}`;
+      return documentId ? `${url}&document_id=${encodeURIComponent(documentId)}` : url;
+    },
   },
   search: {
     query: async (params: { q: string; mode?: string; type?: string; document_id?: string; limit?: number }) => {

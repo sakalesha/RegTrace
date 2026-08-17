@@ -41,8 +41,13 @@ async def get_report(report_id: str):
 
 
 @router.get("/{report_id}/export")
-async def export_report(report_id: str, format: str = "json"):
+async def export_report(
+    report_id: str, format: str = "json", document_id: Optional[str] = None
+):
     report = await service.get_report(report_id)
+    if not report and document_id:
+        # Preview reports are not persisted; rebuild on the fly for export.
+        report = await service.preview(document_id)
     if not report:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Report not found")

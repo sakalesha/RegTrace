@@ -215,13 +215,13 @@ export function ReportsPage() {
 
             <div className="flex gap-3">
               <a
-                href={api.reports.exportUrl(current.report_id, "pdf")}
+                href={api.reports.exportUrl(current.report_id, "pdf", current.document_id)}
                 className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
               >
                 Export PDF
               </a>
               <a
-                href={api.reports.exportUrl(current.report_id, "json")}
+                href={api.reports.exportUrl(current.report_id, "json", current.document_id)}
                 download={`report_${current.report_id}.json`}
                 className="px-4 py-2 rounded-md border border-border bg-background text-sm font-medium hover:bg-muted transition-colors"
               >

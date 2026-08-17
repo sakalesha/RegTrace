@@ -72,9 +72,11 @@ class GapService:
         if obligation_ids:
             tcur = database.tasks.find({"obligation_id": {"$in": obligation_ids}})
             async for t in tcur:
+                t["_id"] = str(t["_id"])
                 tasks_by_obl[t.get("obligation_id")].append(t)
             ecur = database.evidence.find({"obligation_id": {"$in": obligation_ids}})
             async for e in ecur:
+                e["_id"] = str(e["_id"])
                 evs_by_obl[e.get("obligation_id")].append(e)
         return tasks_by_obl, evs_by_obl
 

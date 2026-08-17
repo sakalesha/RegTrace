@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from fastapi.responses import Response, JSONResponse
 from pydantic import BaseModel
 
@@ -18,20 +18,12 @@ class ReportGenerateRequest(BaseModel):
 
 @router.post("/generate", response_model=AuditReport)
 async def generate_report(req: ReportGenerateRequest):
-    try:
-        return await service.generate(req.document_id, req.generated_by or "system")
-    except Exception as e:
-        import traceback
-        raise HTTPException(status_code=500, detail={"error": str(e), "tb": traceback.format_exc().splitlines()[-5:]})
+    return await service.generate(req.document_id, req.generated_by or "system")
 
 
 @router.post("/preview", response_model=AuditReport)
 async def preview_report(req: ReportGenerateRequest):
-    try:
-        return await service.preview(req.document_id, req.generated_by or "system")
-    except Exception as e:
-        import traceback
-        raise HTTPException(status_code=500, detail={"error": str(e), "tb": traceback.format_exc().splitlines()[-5:]})
+    return await service.preview(req.document_id, req.generated_by or "system")
 
 
 @router.get("", response_model=list[ReportListItem])

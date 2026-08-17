@@ -43,7 +43,6 @@ function App() {
         <Route path="/gap-analysis" element={<GapAnalysisPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/search" element={<SearchPage />} />
-        <Route path="/ai-query" element={<DummyPage title="AI Query" />} />
         <Route path="/settings" element={<DummyPage title="Settings" />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

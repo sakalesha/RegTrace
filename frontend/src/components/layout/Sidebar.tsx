@@ -9,7 +9,6 @@ import {
   ShieldCheck,
   LineChart,
   ClipboardList,
-  Bot,
   Settings,
   BookOpen,
 } from "lucide-react";
@@ -34,7 +33,6 @@ export function Sidebar() {
     { name: "Compliance", href: "/compliance", icon: ShieldCheck },
     { name: "Gap Analysis", href: "/gap-analysis", icon: LineChart },
     { name: "Audit Reports", href: "/reports", icon: ClipboardList },
-    { name: "AI Query", href: "/ai-query", icon: Bot },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 

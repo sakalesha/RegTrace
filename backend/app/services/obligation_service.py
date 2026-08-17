@@ -88,6 +88,14 @@ class ObligationService:
         })
 
         await self._maybe_mark_reviewed(database, updated_obs.get("document_id"))
+
+        from app.services.audit_service import log_event
+        await log_event(
+            "OBLIGATION_REVIEWED",
+            document_id=updated_obs.get("document_id"),
+            actor=reviewer,
+            meta={"obligation_id": obligation_id, "action": action, "status": status},
+        )
         return ObligationModel(**updated_obs)
 
     async def _maybe_mark_reviewed(self, database, document_id: str):
@@ -102,6 +110,8 @@ class ObligationService:
                 {"document_id": document_id},
                 {"$set": {"processing_status": DocumentStatus.OBLIGATIONS_REVIEWED}}
             )
+            from app.services.audit_service import log_event
+            await log_event("DOCUMENT_OBLIGATIONS_REVIEWED", document_id=document_id)
 
     async def get_reviews(self, obligation_id: str) -> List[dict]:
         database = db.get_db()
@@ -146,6 +156,11 @@ class ObligationService:
         for doc_id in doc_ids:
             await self._maybe_mark_reviewed(database, doc_id)
 
+        from app.services.audit_service import log_event
+        await log_event(
+            "OBLIGATIONS_BULK_APPROVED",
+            meta={"document_ids": doc_ids, "count": len(obligation_ids)},
+        )
         return result.modified_count
 
     async def process_document_obligations(self, document_id: str):
@@ -170,6 +185,8 @@ class ObligationService:
                 "clauses_processed": 0,
             }}
         )
+        from app.services.audit_service import log_event
+        await log_event("OBLIGATION_EXTRACTION_STARTED", document_id=document_id)
         
         try:
             # 3. Fetch only clauses flagged as having obligations
@@ -286,12 +303,20 @@ class ObligationService:
                     {"document_id": document_id},
                     {"$set": {"processing_status": DocumentStatus.PROCESSING_CANCELLED}}
                 )
+                from app.services.audit_service import log_event
+                await log_event("OBLIGATION_EXTRACTION_CANCELLED", document_id=document_id)
                 return
             
             # 5. Set document status to ready
             await database.documents.update_one(
                 {"document_id": document_id},
                 {"$set": {"processing_status": DocumentStatus.OBLIGATIONS_EXTRACTED}}
+            )
+            from app.services.audit_service import log_event
+            await log_event(
+                "OBLIGATIONS_EXTRACTED",
+                document_id=document_id,
+                meta={"obligations": total_obligations, "clauses": len(clauses)},
             )
             stage_done(logger, "obligation-extraction", document_id,
                        f"{total_obligations} obligations from {len(clauses)} clauses",
@@ -316,6 +341,8 @@ class ObligationService:
                 {"document_id": document_id},
                 {"$set": {"processing_status": DocumentStatus.EXTRACTION_FAILED}}
             )
+            from app.services.audit_service import log_event
+            await log_event("OBLIGATION_EXTRACTION_FAILED", document_id=document_id, meta={"error": str(e)})
         finally:
             registry.clear(document_id)
             await database.documents.update_one(

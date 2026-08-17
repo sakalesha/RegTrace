@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import documents, clauses, obligations, dashboard, tasks, pipeline, evidence, compliance, gap, reports, search, embeddings
+from app.api.routes import documents, clauses, obligations, dashboard, tasks, pipeline, evidence, compliance, gap, reports, search, embeddings, audit
 
 # ---------------------------------------------------------------------------
 # Centralised logging for the pipeline. Every stage (upload, parse, segment,
@@ -52,6 +52,7 @@ app.include_router(gap.router, prefix="/api/gap", tags=["gap"])
 app.include_router(reports.router, prefix="/api/reports", tags=["reports"])
 app.include_router(search.router, prefix="/api/search", tags=["search"])
 app.include_router(embeddings.router, prefix="/api/embeddings", tags=["embeddings"])
+app.include_router(audit.router, prefix="/api/audit", tags=["audit"])
 
 @app.get("/")
 async def root():

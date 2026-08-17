@@ -20,6 +20,7 @@ class ObligationResponse(ObligationBase):
     document_id: str
     clause_id: str
     status: str = Field(..., description="PENDING, APPROVED, REJECTED, EDITED")
+    embedding: Optional[List[float]] = None
     created_at: datetime
     updated_at: datetime
 

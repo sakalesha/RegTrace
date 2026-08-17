@@ -10,6 +10,7 @@ import { EvidencePage } from './pages/EvidencePage';
 import { CompliancePage } from './pages/CompliancePage';
 import { GapAnalysisPage } from './pages/GapAnalysisPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { SearchPage } from './pages/SearchPage';
 import { AppLayout } from './components/layout/AppLayout';
 
 // Dummy page for other routes to prevent 404s
@@ -41,6 +42,7 @@ function App() {
         <Route path="/compliance" element={<CompliancePage />} />
         <Route path="/gap-analysis" element={<GapAnalysisPage />} />
         <Route path="/reports" element={<ReportsPage />} />
+        <Route path="/search" element={<SearchPage />} />
         <Route path="/ai-query" element={<DummyPage title="AI Query" />} />
         <Route path="/settings" element={<DummyPage title="Settings" />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -302,6 +302,13 @@ class ObligationService:
             #    so task generation can consume them immediately.
             from app.services.task_service import TaskService
             asyncio.create_task(TaskService().process_document_tasks(document_id))
+
+            # 6b. Best-effort embeddings for semantic search (clauses + obligations).
+            try:
+                from app.services.embedding_service import embed_document
+                asyncio.create_task(embed_document(document_id))
+            except Exception as e:
+                logger.warning("Obligation embedding skipped: %s", e)
             
         except Exception as e:
             stage_fail(logger, "obligation-extraction", document_id, e)

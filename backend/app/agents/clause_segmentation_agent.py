@@ -645,6 +645,15 @@ class ClauseSegmentationAgent(BaseAgent):
         models = [ClauseModel(**clause.dict()) for clause in output_data.clauses]
         await ClauseService.create_clauses(models)
         obligation_count = sum(1 for c in output_data.clauses if c.has_obligations)
+
+        # 3b. Best-effort embeddings for semantic search (clauses only; obligations
+        # are embedded again once extraction completes).
+        try:
+            import asyncio
+            from app.services.embedding_service import embed_document
+            asyncio.create_task(embed_document(output_data.document_id))
+        except Exception as e:
+            logger.warning("Clause embedding skipped: %s", e)
         logger.info("Persisted %d clauses | %d flagged as obligation-bearing → starting obligation extraction",
                     len(models), obligation_count)
 

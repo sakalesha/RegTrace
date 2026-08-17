@@ -289,5 +289,18 @@ export const api = {
     },
     exportUrl: (reportId: string, format: 'json' | 'pdf' = 'pdf') =>
       `${API_BASE_URL}/reports/${reportId}/export?format=${format}`,
+  },
+  search: {
+    query: async (params: { q: string; mode?: string; type?: string; document_id?: string; limit?: number }) => {
+      const url = new URL(`${API_BASE_URL}/search`);
+      url.searchParams.append('q', params.q);
+      if (params.mode) url.searchParams.append('mode', params.mode);
+      if (params.type) url.searchParams.append('type', params.type);
+      if (params.document_id) url.searchParams.append('document_id', params.document_id);
+      if (params.limit) url.searchParams.append('limit', String(params.limit));
+      const response = await fetch(url.toString());
+      if (!response.ok) throw new Error('Failed to search');
+      return response.json();
+    }
   }
 };

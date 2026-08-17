@@ -23,6 +23,7 @@ class ClauseSchema(ClauseBase):
     clause_id: str
     document_id: str
     status: str = "PENDING_OBLIGATION_EXTRACTION"
+    embedding: Optional[List[float]] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
 class ClauseSegmentationInput(BaseModel):

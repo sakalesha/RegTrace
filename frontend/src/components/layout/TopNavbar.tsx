@@ -1,7 +1,17 @@
 import { Search, Bell, User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 export function TopNavbar() {
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = q.trim();
+    if (query) navigate(`/search?q=${encodeURIComponent(query)}`);
+  };
+
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-border bg-background px-4 md:px-6">
       <div className="flex items-center gap-4">
@@ -14,17 +24,19 @@ export function TopNavbar() {
       </div>
 
       <div className="flex flex-1 items-center justify-center px-6">
-        <div className="relative w-full max-w-md">
+        <form onSubmit={submit} className="relative w-full max-w-md">
           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
             <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           </div>
           <input
             type="text"
+            value={q}
+            onChange={e => setQ(e.target.value)}
             className="block w-full rounded-md border border-border bg-muted/50 py-1.5 pl-9 pr-3 text-foreground placeholder:text-muted-foreground focus:bg-background focus:border-foreground focus:ring-0 sm:text-sm sm:leading-6 transition-colors"
             placeholder="Search obligations, documents, tasks..."
             aria-label="Global search input"
           />
-        </div>
+        </form>
       </div>
 
       <div className="flex items-center gap-4">

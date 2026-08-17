@@ -13,3 +13,4 @@ pytesseract
 pdf2image
 python-multipart==0.0.9
 mangum==0.17.0
+sentence-transformers==3.3.1

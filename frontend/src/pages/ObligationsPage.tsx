@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { api } from '../lib/api';
 import { anyDocumentProcessing } from '../lib/pipelineStatus';
-import { CheckCircle, XCircle, AlertCircle, Edit, Search, CheckSquare, Play, Loader2, FileSearch, FileSpreadsheet } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, Edit, Search, CheckSquare, Play, Loader2, FileSearch, FileSpreadsheet, History, X } from 'lucide-react';
 
 function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
   const esc = (v: string | number) => {
@@ -206,6 +206,67 @@ export const ObligationsPage = () => {
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
     setSelectedIds(newSet);
+  };
+
+  // Review modal (edit + comment/reviewer) and history drawer
+  const [reviewModalOb, setReviewModalOb] = useState<Obligation | null>(null);
+  const [historyOb, setHistoryOb] = useState<string | null>(null);
+  const [historyReviews, setHistoryReviews] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [editForm, setEditForm] = useState({ actor: '', action: '', condition: '', deadline: '', frequency: '', is_mandatory: false });
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewReviewer, setReviewReviewer] = useState('');
+
+  const openReviewModal = (ob: Obligation) => {
+    setEditForm({
+      actor: ob.actor,
+      action: ob.action,
+      condition: ob.condition ?? '',
+      deadline: ob.deadline ?? '',
+      frequency: ob.frequency ?? '',
+      is_mandatory: ob.is_mandatory,
+    });
+    setReviewComment('');
+    setReviewReviewer('');
+    setReviewModalOb(ob);
+  };
+
+  const submitReview = async (status: string) => {
+    if (!reviewModalOb) return;
+    const data: any = {
+      status,
+      comment: reviewComment || undefined,
+      reviewer: reviewReviewer || undefined,
+    };
+    if (status === 'EDITED') {
+      data.actor = editForm.actor;
+      data.action = editForm.action;
+      data.condition = editForm.condition || undefined;
+      data.deadline = editForm.deadline || undefined;
+      data.frequency = editForm.frequency || undefined;
+      data.is_mandatory = editForm.is_mandatory;
+    }
+    try {
+      await api.obligations.review(reviewModalOb.id, data);
+      setReviewModalOb(null);
+      fetchObligations();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openHistory = async (id: string) => {
+    setHistoryOb(id);
+    setHistoryLoading(true);
+    try {
+      const res = await api.obligations.getReviews(id);
+      setHistoryReviews(res.reviews || []);
+    } catch (err) {
+      console.error(err);
+      setHistoryReviews([]);
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   const getConfidenceBadge = (score: number) => {
@@ -440,12 +501,21 @@ export const ObligationsPage = () => {
                   <div className="mt-5 flex justify-end space-x-2 border-t dark:border-gray-800 pt-4">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleReview(ob.id, 'REJECTED'); }}
+                      title="Reject"
                       className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     >
                       <XCircle className="w-5 h-5" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); /* trigger edit modal */ }}
+                      onClick={(e) => { e.stopPropagation(); openHistory(ob.id); }}
+                      title="Review history"
+                      className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                    >
+                      <History className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openReviewModal(ob); }}
+                      title="Edit & review"
                       className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
                     >
                       <Edit className="w-5 h-5" />
@@ -526,6 +596,124 @@ export const ObligationsPage = () => {
           </div>
         )}
       </div>
+
+      {/* Review modal: edit obligation fields + reviewer/comment */}
+      {reviewModalOb && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setReviewModalOb(null)}>
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground">Review Obligation</h3>
+              <button onClick={() => setReviewModalOb(null)} className="p-1 text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Actor</label>
+                <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={editForm.actor} onChange={e => setEditForm({ ...editForm, actor: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Action</label>
+                <textarea rows={3} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  value={editForm.action} onChange={e => setEditForm({ ...editForm, action: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Condition</label>
+                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={editForm.condition} onChange={e => setEditForm({ ...editForm, condition: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Deadline</label>
+                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={editForm.deadline} onChange={e => setEditForm({ ...editForm, deadline: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Frequency</label>
+                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={editForm.frequency} onChange={e => setEditForm({ ...editForm, frequency: e.target.value })} />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex items-center space-x-2 text-sm text-foreground">
+                    <input type="checkbox" checked={editForm.is_mandatory}
+                      onChange={e => setEditForm({ ...editForm, is_mandatory: e.target.checked })} />
+                    <span>Mandatory</span>
+                  </label>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Reviewer</label>
+                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Optional" value={reviewReviewer} onChange={e => setReviewReviewer(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-muted-foreground mb-1">Note</label>
+                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Optional comment" value={reviewComment} onChange={e => setReviewComment(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-2">
+              <button onClick={() => submitReview('REJECTED')}
+                className="px-4 py-2 rounded-lg border border-red-500/30 text-red-500 hover:bg-red-500/10 font-medium transition-colors">Reject</button>
+              <button onClick={() => submitReview('EDITED')}
+                className="px-4 py-2 rounded-lg border border-border bg-muted/60 text-foreground hover:bg-muted font-medium transition-colors">Save Edit</button>
+              <button onClick={() => submitReview('APPROVED')}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors">Approve</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review history drawer */}
+      {historyOb && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={() => setHistoryOb(null)}>
+          <div className="w-full max-w-md h-full overflow-y-auto bg-card border-l border-border p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <History className="w-5 h-5 text-primary" /> Review History
+              </h3>
+              <button onClick={() => setHistoryOb(null)} className="p-1 text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <p className="text-sm text-muted-foreground">Loading...</p>
+            ) : historyReviews.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No reviews recorded yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {historyReviews.map((r) => (
+                  <div key={r.review_id} className="rounded-xl border border-border bg-background p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                        r.action === 'APPROVE' ? 'bg-green-500/10 text-green-500' :
+                        r.action === 'REJECT' ? 'bg-red-500/10 text-red-500' :
+                        'bg-amber-500/10 text-amber-500'
+                      }`}>{r.action}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(r.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    {r.reviewer && <p className="text-sm text-foreground"><span className="text-muted-foreground">Reviewer: </span>{r.reviewer}</p>}
+                    {r.comment && <p className="text-sm text-foreground mt-1">{r.comment}</p>}
+                    {Object.keys(r.changes || {}).length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Changed: {Object.keys(r.changes).join(', ')}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </AppLayout>
   );
 };

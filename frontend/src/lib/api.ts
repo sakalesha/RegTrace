@@ -118,6 +118,11 @@ export const api = {
       });
       if (!response.ok) throw new Error('Failed to bulk approve');
       return response.json();
+    },
+    getReviews: async (id: string) => {
+      const response = await fetch(`${API_BASE_URL}/obligations/${id}/reviews`);
+      if (!response.ok) throw new Error('Failed to fetch review history');
+      return response.json();
     }
   },
   tasks: {

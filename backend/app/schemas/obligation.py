@@ -34,6 +34,9 @@ class ObligationUpdate(BaseModel):
     frequency: Optional[str] = None
     is_mandatory: Optional[bool] = None
     status: Optional[str] = None
+    # Review metadata (not stored on the obligation itself)
+    reviewer: Optional[str] = None
+    comment: Optional[str] = None
 
 class BulkApproveRequest(BaseModel):
     obligation_ids: List[str] = Field(..., description="List of Obligation IDs to approve.")

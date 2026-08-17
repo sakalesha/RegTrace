@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from bson import ObjectId
 
 from app.db.mongodb import db
@@ -40,31 +40,112 @@ class ObligationService:
             obligations.append(ObligationModel(**doc))
         return obligations
 
-    async def review_obligation(self, obligation_id: str, status: str, updated_data: dict = None) -> ObligationModel:
+    async def review_obligation(self, obligation_id: str, status: str, updated_data: dict = None, reviewer: str = None, comment: str = None) -> Optional[ObligationModel]:
         database = db.get_db()
+        oid = ObjectId(obligation_id)
+        previous = await database.obligations.find_one({"_id": oid})
+        if not previous:
+            return None
+
         update_doc = {"status": status}
         if updated_data:
             # allow updating fields like description, timeline, etc.
             update_doc.update(updated_data)
-            
+        # reviewer/comment are review metadata, not obligation fields
+        update_doc.pop("reviewer", None)
+        update_doc.pop("comment", None)
+        update_doc.pop("review_id", None)
+        update_doc.pop("_id", None)
+
         await database.obligations.update_one(
-            {"_id": ObjectId(obligation_id)},
+            {"_id": oid},
             {"$set": update_doc}
         )
-        
-        updated_obs = await database.obligations.find_one({"_id": ObjectId(obligation_id)})
-        if updated_obs:
-            updated_obs["_id"] = str(updated_obs["_id"])
-            return ObligationModel(**updated_obs)
-        return None
+
+        updated_obs = await database.obligations.find_one({"_id": oid})
+        updated_obs["_id"] = str(updated_obs["_id"])
+
+        action = "EDIT"
+        if status == "APPROVED":
+            action = "APPROVE"
+        elif status == "REJECTED":
+            action = "REJECT"
+
+        previous_snapshot = {k: previous.get(k) for k in update_doc.keys()}
+        changes = {k: v for k, v in update_doc.items() if k != "status"}
+
+        await database.reviews.insert_one({
+            "review_id": str(ObjectId()),
+            "obligation_id": obligation_id,
+            "document_id": updated_obs.get("document_id"),
+            "clause_id": updated_obs.get("clause_id"),
+            "action": action,
+            "reviewer": reviewer,
+            "comment": comment,
+            "previous": previous_snapshot,
+            "changes": changes,
+            "created_at": datetime.utcnow(),
+        })
+
+        await self._maybe_mark_reviewed(database, updated_obs.get("document_id"))
+        return ObligationModel(**updated_obs)
+
+    async def _maybe_mark_reviewed(self, database, document_id: str):
+        """Transition a document to OBLIGATIONS_REVIEWED once it has no PENDING obligations."""
+        if not document_id:
+            return
+        remaining = await database.obligations.count_documents(
+            {"document_id": document_id, "status": "PENDING"}
+        )
+        if remaining == 0:
+            await database.documents.update_one(
+                {"document_id": document_id},
+                {"$set": {"processing_status": DocumentStatus.OBLIGATIONS_REVIEWED}}
+            )
+
+    async def get_reviews(self, obligation_id: str) -> List[dict]:
+        database = db.get_db()
+        cursor = database.reviews.find({"obligation_id": obligation_id}).sort("created_at", -1)
+        out = []
+        async for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            out.append(doc)
+        return out
 
     async def bulk_approve(self, obligation_ids: List[str]) -> int:
         database = db.get_db()
         object_ids = [ObjectId(oid) for oid in obligation_ids]
+        affected = await database.obligations.find(
+            {"_id": {"$in": object_ids}}, {"document_id": 1, "clause_id": 1, "status": 1}
+        ).to_list(length=None)
+        doc_ids = list({a["document_id"] for a in affected})
+
         result = await database.obligations.update_many(
             {"_id": {"$in": object_ids}},
             {"$set": {"status": "APPROVED"}}
         )
+
+        now = datetime.utcnow()
+        review_docs = []
+        for a in affected:
+            review_docs.append({
+                "review_id": str(ObjectId()),
+                "obligation_id": str(a["_id"]),
+                "document_id": a.get("document_id"),
+                "clause_id": a.get("clause_id"),
+                "action": "APPROVE",
+                "reviewer": None,
+                "comment": None,
+                "previous": {"status": a.get("status")},
+                "changes": {"status": "APPROVED"},
+                "created_at": now,
+            })
+        if review_docs:
+            await database.reviews.insert_many(review_docs)
+
+        for doc_id in doc_ids:
+            await self._maybe_mark_reviewed(database, doc_id)
+
         return result.modified_count
 
     async def process_document_obligations(self, document_id: str):

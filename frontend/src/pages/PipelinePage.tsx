@@ -25,6 +25,11 @@ import {
   BookOpen,
   Trash2,
 } from 'lucide-react';
+import { PageHeader } from '../components/ui/page-header';
+import { Button } from '../components/ui/button';
+import { StatusBadge } from '../components/ui/StatusBadge';
+import { EmptyState } from '../components/ui/empty-state';
+import { PageLoading } from '../components/ui/spinner';
 
 interface PipelineCounts {
   total: number;
@@ -348,41 +353,31 @@ export const PipelinePage = () => {
 
   const getStatusBadge = (status: string) => {
     if (status === 'PROCESSING_CANCELLED') {
-      return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-slate-500/10 text-slate-500 border border-slate-500/30">
-        <X className="w-3 h-3" /> Cancelled
-      </span>;
+      return <StatusBadge tone="neutral" icon={false}>Cancelled</StatusBadge>;
     }
     if (status === 'FAILED' || status === 'EXTRACTION_FAILED' || status === 'TASKS_GENERATION_FAILED') {
-      return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-500/10 text-red-500 border border-red-500/30">
-        <AlertTriangle className="w-3 h-3" /> Failed
-      </span>;
+      return <StatusBadge tone="destructive">Failed</StatusBadge>;
     }
     if (PROCESSING_STATUSES.has(status)) {
-      return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-500 border border-amber-500/30">
-        <Loader2 className="w-3 h-3 animate-spin" /> Processing
-      </span>;
+      return (
+        <span className="inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
+          <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> Processing
+        </span>
+      );
     }
     if (status === 'OBLIGATIONS_EXTRACTED') {
-      return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 border border-blue-500/30">
-        <Clock className="w-3 h-3" /> Obligations Ready
-      </span>;
+      return <StatusBadge tone="info" icon={false}>Obligations Ready</StatusBadge>;
     }
     if (status === 'OBLIGATIONS_REVIEWED') {
-      return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/30">
-        <CheckCircle2 className="w-3 h-3" /> Obligations Reviewed
-      </span>;
+      return <StatusBadge tone="success">Obligations Reviewed</StatusBadge>;
     }
     if (['TASKS_CREATED', 'TASKS_ASSIGNED'].includes(status)) {
-      return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-500/10 text-green-500 border border-green-500/30">
-        <CheckCircle2 className="w-3 h-3" /> Tasks Ready
-      </span>;
+      return <StatusBadge tone="success">Tasks Ready</StatusBadge>;
     }
     if (['EVIDENCE_SUBMITTED', 'COMPLIANCE_EVALUATED', 'GAP_ANALYSIS_COMPLETED', 'REPORT_GENERATED'].includes(status)) {
-      return <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-teal-500/10 text-teal-500 border border-teal-500/30">
-        <CheckCircle2 className="w-3 h-3" /> Advanced
-      </span>;
+      return <StatusBadge tone="success" icon={false}>Advanced</StatusBadge>;
     }
-    return <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border">{status}</span>;
+    return <StatusBadge tone="neutral">{status}</StatusBadge>;
   };
 
   const renderActions = (doc: PipelineDocument) => {
@@ -398,8 +393,8 @@ export const PipelinePage = () => {
           disabled={busy || status === 'EXTRACTING_OBLIGATIONS'}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors"
         >
-          {status === 'EXTRACTING_OBLIGATIONS' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> :
-            status === 'EXTRACTION_FAILED' ? <RotateCcw className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+          {status === 'EXTRACTING_OBLIGATIONS' ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
+            status === 'EXTRACTION_FAILED' ? <RotateCcw className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
           {status === 'EXTRACTING_OBLIGATIONS' ? 'Extracting...' : status === 'EXTRACTION_FAILED' ? 'Retry Extraction' : 'Start Extraction'}
         </button>
       );
@@ -413,7 +408,7 @@ export const PipelinePage = () => {
           disabled={busy}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 disabled:opacity-50 disabled:pointer-events-none transition-colors"
         >
-          <X className="w-3.5 h-3.5" /> Cancel Run
+          <X className="h-3.5 w-3.5" /> Cancel Run
         </button>
       );
     }
@@ -426,13 +421,13 @@ export const PipelinePage = () => {
             to="/obligations"
             className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-accent/15 text-accent hover:bg-accent/25 transition-colors"
           >
-            <Clock className="w-3.5 h-3.5" /> Review {doc.obligations.pending} pending
+            <Clock className="h-3.5 w-3.5" /> Review {doc.obligations.pending} pending
           </Link>
         );
       } else {
         buttons.push(
-          <span key="reviewed" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-green-500/10 text-green-500">
-            <CheckCircle2 className="w-3.5 h-3.5" /> Reviewed
+          <span key="reviewed" className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-success/10 text-success">
+            <CheckCircle2 className="h-3.5 w-3.5" /> Reviewed
           </span>
         );
       }
@@ -445,7 +440,7 @@ export const PipelinePage = () => {
           to="/tasks"
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
         >
-          <ArrowRight className="w-3.5 h-3.5" /> View {doc.tasks.total} tasks
+          <ArrowRight className="h-3.5 w-3.5" /> View {doc.tasks.total} tasks
         </Link>
       );
     } else if (status === 'TASKS_GENERATION_FAILED') {
@@ -456,13 +451,13 @@ export const PipelinePage = () => {
           disabled={busy}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors"
         >
-          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Retry Task Generation
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />} Retry Task Generation
         </button>
       );
     } else if (status === 'GENERATING_TASKS') {
       buttons.push(
         <button key="gen-tasks" disabled className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary/50 text-primary-foreground cursor-not-allowed">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Generating tasks...
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Generating tasks...
         </button>
       );
     } else if (doc.obligations.total > 0 && doc.obligations.pending === 0 && status !== 'PROCESSING_CANCELLED') {
@@ -473,7 +468,7 @@ export const PipelinePage = () => {
           disabled={busy}
           className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors"
         >
-          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />} Generate Tasks
+          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />} Generate Tasks
         </button>
       );
     }
@@ -486,7 +481,7 @@ export const PipelinePage = () => {
         title="Re-run clause segmentation and obligation extraction to refresh counts"
         className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border border-border text-muted-foreground hover:text-foreground hover:bg-muted/80 disabled:opacity-50 disabled:pointer-events-none transition-colors"
       >
-        {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />} Re-run Processing
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />} Re-run Processing
       </button>
     );
 
@@ -498,7 +493,7 @@ export const PipelinePage = () => {
         title="Delete document and all related data"
         className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-destructive border border-destructive/30 hover:bg-destructive/10 disabled:opacity-50 disabled:pointer-events-none transition-colors"
       >
-        {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Delete
+        {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />} Delete
       </button>
     );
 
@@ -513,14 +508,14 @@ export const PipelinePage = () => {
         const showSpinner = state === 'active' && processing && stage.key !== 'review';
 
         const dotClass =
-          state === 'done' ? 'bg-green-500 border-green-500 text-white' :
-          state === 'failed' ? 'bg-red-500 border-red-500 text-white' :
+          state === 'done' ? 'bg-success border-success text-white' :
+          state === 'failed' ? 'bg-destructive border-destructive text-white' :
           state === 'active' ? 'bg-primary border-primary text-primary-foreground' :
           'bg-muted border-border text-muted-foreground';
 
         const labelClass =
-          state === 'done' ? 'text-green-600 dark:text-green-400' :
-          state === 'failed' ? 'text-red-500' :
+          state === 'done' ? 'text-success' :
+          state === 'failed' ? 'text-destructive' :
           state === 'active' ? 'text-primary font-semibold' :
           'text-muted-foreground';
 
@@ -529,11 +524,11 @@ export const PipelinePage = () => {
             <div className="flex flex-col items-center gap-1.5 w-16">
               <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center ${dotClass}`}>
                 {showSpinner ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : state === 'done' ? (
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="h-4 w-4" />
                 ) : state === 'failed' ? (
-                  <AlertTriangle className="w-4 h-4" />
+                  <AlertTriangle className="h-4 w-4" />
                 ) : (
                   <span className="w-1.5 h-1.5 rounded-full bg-current" />
                 )}
@@ -541,7 +536,7 @@ export const PipelinePage = () => {
               <span className={`text-[10px] leading-tight text-center ${labelClass}`}>{stage.label}</span>
             </div>
             {i < STAGES.length - 1 && (
-              <div className={`w-6 h-0.5 shrink-0 mb-5 ${state === 'done' ? 'bg-green-500' : 'bg-border'}`} />
+              <div className={`w-6 h-0.5 shrink-0 mb-5 ${state === 'done' ? 'bg-success' : 'bg-border'}`} />
             )}
           </div>
         );
@@ -550,7 +545,7 @@ export const PipelinePage = () => {
   );
 
   const renderDetails = (doc: PipelineDocument) => (
-    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-border">
+    <div className="mt-4 grid grid-cols-1 pt-4 border-t border-border sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="space-y-2">
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Document Details</p>
         <DetailRow icon={FileText} label="Type" value={doc.document_type ?? '—'} />
@@ -591,7 +586,7 @@ export const PipelinePage = () => {
           to={`/documents/${doc.document_id}/clauses`}
           className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors"
         >
-          <BookOpen className="w-3.5 h-3.5" /> View Clauses
+          <BookOpen className="h-3.5 w-3.5" /> View Clauses
         </Link>
       </div>
     </div>
@@ -600,7 +595,7 @@ export const PipelinePage = () => {
   const DetailRow = ({ icon: Icon, label, value }: { icon: any; label: string; value: string }) => (
     <div className="flex items-center justify-between gap-2">
       <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Icon className="w-3.5 h-3.5" /> {label}
+        <Icon className="h-3.5 w-3.5" /> {label}
       </span>
       <span className="text-xs font-medium text-foreground truncate">{value}</span>
     </div>
@@ -608,208 +603,193 @@ export const PipelinePage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Processing Pipeline</h1>
-            <p className="mt-2 text-sm text-gray-400">
-              Upload documents, track every stage, and trigger manual steps without leaving this page.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowUpload(v => !v)}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors"
-          >
-            {showUpload ? <X className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
+      <PageHeader
+        title="Processing Pipeline"
+        description="Upload documents, track every stage, and trigger manual steps without leaving this page."
+        actions={
+          <Button variant="primary" onClick={() => setShowUpload(v => !v)}>
+            {showUpload ? <X className="h-4 w-4" /> : <Upload className="h-4 w-4" />}
             {showUpload ? 'Close Upload' : 'Upload Document'}
-          </button>
-        </div>
+          </Button>
+        }
+      />
 
-        {showUpload && (
-          <div className="mb-8 rounded-xl border border-border bg-card shadow-sm">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
-              <div className="lg:col-span-2 space-y-6">
-                <div>
-                  <p className="text-lg font-semibold text-foreground mb-1">1. Document File</p>
-                  <p className="text-sm text-muted-foreground mb-3">Upload a single regulatory document for processing</p>
-                  {!file ? (
-                    <UploadDropzone onFileSelected={handleFileSelected} />
-                  ) : (
-                    <SelectedFileCard file={file} onRemove={handleRemoveFile} />
-                  )}
-                </div>
-                <div>
-                  <p className="text-lg font-semibold text-foreground mb-1">2. Document Metadata</p>
-                  <p className="text-sm text-muted-foreground mb-3">Provide details required for the compliance pipeline</p>
-                  <MetadataForm
-                    initialValues={{ title: file?.name.split('.').slice(0, -1).join('.') || '' }}
-                    onValidityChange={handleValidityChange}
-                    onSubmit={handleStartProcessing}
-                  />
-                </div>
+      {showUpload && (
+        <div className="mb-8 rounded-xl border border-border bg-card shadow-sm">
+          <div className="grid grid-cols-1 gap-6 p-6 lg:grid-cols-3">
+            <div className="space-y-6 lg:col-span-2">
+              <div>
+                <p className="mb-1 text-lg font-semibold text-foreground">1. Document File</p>
+                <p className="mb-3 text-sm text-muted-foreground">Upload a single regulatory document for processing</p>
+                {!file ? (
+                  <UploadDropzone onFileSelected={handleFileSelected} />
+                ) : (
+                  <SelectedFileCard file={file} onRemove={handleRemoveFile} />
+                )}
               </div>
-              <div className="space-y-4">
-                <ValidationPanel
-                  file={file}
-                  isMetadataValid={isMetadataValid}
-                  completedFieldsCount={completedFieldsCount}
-                  totalFieldsCount={totalFieldsCount}
+              <div>
+                <p className="mb-1 text-lg font-semibold text-foreground">2. Document Metadata</p>
+                <p className="mb-3 text-sm text-muted-foreground">Provide details required for the compliance pipeline</p>
+                <MetadataForm
+                  initialValues={{ title: file?.name.split('.').slice(0, -1).join('.') || '' }}
+                  onValidityChange={handleValidityChange}
+                  onSubmit={handleStartProcessing}
                 />
-                <button
-                  onClick={triggerFormSubmit}
-                  disabled={!file || !isMetadataValid || isUploading}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors"
-                >
-                  {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                  {isUploading ? 'Processing...' : 'Start Processing'}
-                </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {error && (
-          <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm text-red-500">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="mb-6 rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm text-green-600 dark:text-green-400">
-            {success}
-          </div>
-        )}
-
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-24 space-y-4">
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 rounded-full border-t-2 border-indigo-500 animate-spin"></div>
-              <div className="absolute inset-2 rounded-full border-r-2 border-purple-500 animate-spin" style={{ animationDirection: 'reverse' }}></div>
+            <div className="space-y-4">
+              <ValidationPanel
+                file={file}
+                isMetadataValid={isMetadataValid}
+                completedFieldsCount={completedFieldsCount}
+                totalFieldsCount={totalFieldsCount}
+              />
+              <button
+                onClick={triggerFormSubmit}
+                disabled={!file || !isMetadataValid || isUploading}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+              >
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {isUploading ? 'Processing...' : 'Start Processing'}
+              </button>
             </div>
-            <p className="text-indigo-500 font-medium animate-pulse">Loading pipeline...</p>
           </div>
-        ) : documents.length === 0 ? (
-          <div className="text-center py-24 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
-            <FileSearch className="w-14 h-14 text-gray-300 dark:text-gray-700 mx-auto mb-4" />
-            <p className="text-gray-500 font-medium">No documents in the pipeline yet</p>
-            <p className="mt-1 text-sm text-gray-400">
-              Use the "Upload Document" button above to start the compliance process.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {documents.map(doc => {
-              const failed = isFailed(doc);
-              const date = doc.upload_timestamp ? new Date(doc.upload_timestamp).toLocaleDateString() : '';
-              const actions = renderActions(doc);
-              const expanded = expandedDocId === doc.document_id;
+        </div>
+      )}
 
-              return (
-                <div
-                  key={doc.document_id}
-                  className={`rounded-xl border bg-card p-5 shadow-sm transition-all ${
-                    failed ? 'border-red-500/40' : isProcessing(doc) ? 'border-primary/40' : 'border-border'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-foreground truncate">{doc.title ?? doc.document_id}</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {date ? `${date} · ` : ''}
-                        <span className="font-mono">{doc.document_id.slice(0, 8)}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className="inline-flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> {doc.obligations.total} obligations
-                        </span>
-                        <span className="inline-flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> {doc.obligations.approved} approved
-                        </span>
-                        {doc.tasks.total > 0 && (
-                          <span className="inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> {doc.tasks.total} tasks
-                          </span>
-                        )}
-                      </div>
-                      {getStatusBadge(doc.processing_status)}
-                      <button
-                        onClick={() => setExpandedDocId(expanded ? null : doc.document_id)}
-                        className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-                        title={expanded ? 'Hide details' : 'Show details'}
-                      >
-                        <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-                      </button>
-                    </div>
+      {error && (
+        <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="mb-6 rounded-lg border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
+          {success}
+        </div>
+      )}
+
+      {loading ? (
+        <PageLoading label="Loading pipeline..." />
+      ) : documents.length === 0 ? (
+        <EmptyState
+          icon={FileSearch}
+          title="No documents in the pipeline yet"
+          description='Use the "Upload Document" button above to start the compliance process.'
+        />
+      ) : (
+        <div className="space-y-6">
+          {documents.map(doc => {
+            const failed = isFailed(doc);
+            const date = doc.upload_timestamp ? new Date(doc.upload_timestamp).toLocaleDateString() : '';
+            const actions = renderActions(doc);
+            const expanded = expandedDocId === doc.document_id;
+
+            return (
+              <div
+                key={doc.document_id}
+                className={`rounded-xl border bg-card p-5 shadow-sm transition-all ${
+                  failed ? 'border-destructive/40' : isProcessing(doc) ? 'border-primary/40' : 'border-border'
+                }`}
+              >
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="truncate font-semibold text-foreground">{doc.title ?? doc.document_id}</h3>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {date ? `${date} · ` : ''}
+                      <span className="font-mono">{doc.document_id.slice(0, 8)}</span>
+                    </p>
                   </div>
-
-                  {doc.processing_status === 'FAILED' && (
-                    <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-500">
-                      This document's processing failed. Re-upload it to start over.
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-accent" /> {doc.obligations.total} obligations
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full bg-success" /> {doc.obligations.approved} approved
+                      </span>
+                      {doc.tasks.total > 0 && (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-accent" /> {doc.tasks.total} tasks
+                        </span>
+                      )}
                     </div>
-                  )}
-
-                  <div className="rounded-lg border border-border bg-background/60 p-4">
-                    {renderStageTrack(doc)}
-                  </div>
-
-                  {doc.processing_status === 'EXTRACTING_OBLIGATIONS' && (
-                    <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
-                      <div className="flex items-center justify-between gap-3 text-xs">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                          Extracting obligations…
-                        </span>
-                        <span className="font-semibold text-primary">
-                          {doc.clauses_processed ?? 0} <span className="font-normal text-muted-foreground">of</span> {doc.obligation_clause_count ?? '—'} clauses
-                        </span>
-                      </div>
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all duration-500"
-                          style={{
-                            width: doc.obligation_clause_count ? `${Math.min(100, ((doc.clauses_processed ?? 0) / doc.obligation_clause_count) * 100)}%` : '4%',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {doc.processing_status === 'GENERATING_TASKS' && (
-                    <div className="mt-3 rounded-lg border border-purple-500/30 bg-purple-500/5 px-3 py-2">
-                      <div className="flex items-center justify-between gap-3 text-xs">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-500" />
-                          Generating tasks…
-                        </span>
-                        <span className="font-semibold text-purple-500">
-                          {doc.tasks_processed ?? 0} <span className="font-normal text-muted-foreground">of</span> {doc.obligations.total ?? '—'} obligations
-                        </span>
-                      </div>
-                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full bg-purple-500 transition-all duration-500"
-                          style={{
-                            width: doc.obligations.total ? `${Math.min(100, ((doc.tasks_processed ?? 0) / doc.obligations.total) * 100)}%` : '4%',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {expanded && renderDetails(doc)}
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2 justify-end">
-                    {actions.length > 0 ? actions : (
-                      <span className="text-xs text-muted-foreground">Awaiting processing...</span>
-                    )}
+                    {getStatusBadge(doc.processing_status)}
+                    <button
+                      onClick={() => setExpandedDocId(expanded ? null : doc.document_id)}
+                      className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+                      title={expanded ? 'Hide details' : 'Show details'}
+                    >
+                      <ChevronDown className={`h-4 w-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+
+                {doc.processing_status === 'FAILED' && (
+                  <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                    This document's processing failed. Re-upload it to start over.
+                  </div>
+                )}
+
+                <div className="rounded-lg border border-border bg-background/60 p-4">
+                  {renderStageTrack(doc)}
+                </div>
+
+                {doc.processing_status === 'EXTRACTING_OBLIGATIONS' && (
+                  <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                        Extracting obligations…
+                      </span>
+                      <span className="font-semibold text-primary">
+                        {doc.clauses_processed ?? 0} <span className="font-normal text-muted-foreground">of</span> {doc.obligation_clause_count ?? '—'} clauses
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-500"
+                        style={{
+                          width: doc.obligation_clause_count ? `${Math.min(100, ((doc.clauses_processed ?? 0) / doc.obligation_clause_count) * 100)}%` : '4%',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {doc.processing_status === 'GENERATING_TASKS' && (
+                  <div className="mt-3 rounded-lg border border-accent/30 bg-accent/5 px-3 py-2">
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+                        Generating tasks…
+                      </span>
+                      <span className="font-semibold text-accent">
+                        {doc.tasks_processed ?? 0} <span className="font-normal text-muted-foreground">of</span> {doc.obligations.total ?? '—'} obligations
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-accent transition-all duration-500"
+                        style={{
+                          width: doc.obligations.total ? `${Math.min(100, ((doc.tasks_processed ?? 0) / doc.obligations.total) * 100)}%` : '4%',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {expanded && renderDetails(doc)}
+
+                <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+                  {actions.length > 0 ? actions : (
+                    <span className="text-xs text-muted-foreground">Awaiting processing...</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </AppLayout>
   );
 };

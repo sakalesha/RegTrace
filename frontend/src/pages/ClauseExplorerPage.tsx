@@ -3,7 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { useClauseExplorer } from '../hooks/useClauseExplorer';
 import { api } from '../lib/api';
+import { downloadCsv } from '../lib/csv';
 import { FileText } from 'lucide-react';
+import { Breadcrumbs } from '../components/ui/breadcrumbs';
+import { PageLoading } from '../components/ui/spinner';
+import { Select } from '../components/ui/input';
 import { DocumentHeader } from '../components/clause/DocumentHeader';
 import { DocumentStatsRow } from '../components/clause/DocumentStatsRow';
 import { SearchFilterBar } from '../components/clause/SearchFilterBar';
@@ -23,23 +27,6 @@ function flattenNodes(nodes: any[]): any[] {
   }, []);
 }
 
-function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
-  const esc = (v: string | number) => {
-    const s = String(v ?? '');
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const csv = [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
 export function ClauseExplorerPage() {
   const { documentId } = useParams();
   const navigate = useNavigate();
@@ -50,6 +37,9 @@ export function ClauseExplorerPage() {
       .then(setDocuments)
       .catch(err => console.error('Failed to load documents:', err));
   }, []);
+
+  const currentDoc = documents.find((d) => d.document_id === (documentId || ''));
+  const docTitle = currentDoc?.title ?? documentId ?? 'Documents';
 
   // Use 'default' document ID if none provided in URL for testing
   const {
@@ -67,6 +57,7 @@ export function ClauseExplorerPage() {
     prevClause,
     hasNext,
     hasPrev,
+    isLoading,
   } = useClauseExplorer(documentId || 'doc-1');
 
   const handleExport = () => {
@@ -97,23 +88,44 @@ export function ClauseExplorerPage() {
 
   return (
     <AppLayout>
+      {isLoading ? (
+        <PageLoading label="Loading clauses..." />
+      ) : documents.length === 0 ? (
+        <div className="border-2 border-dashed border-border bg-muted/30 rounded-2xl py-24 text-center">
+          <FileText className="mx-auto mb-4 h-14 w-14 text-muted-foreground" />
+          <p className="font-medium text-foreground">No documents found</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Upload a document from the Pipeline page to extract and explore its clauses.
+          </p>
+        </div>
+      ) : (
+      <>
+      <Breadcrumbs
+        items={[
+          { label: 'Documents', href: '/documents' },
+          { label: docTitle, href: documentId ? `/documents/${documentId}/clauses` : undefined },
+          { label: 'Clauses' },
+        ]}
+      />
       <div className="pb-24"> {/* Padding bottom for fixed action bar */}
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-primary" />
             <span className="text-sm font-medium text-muted-foreground">Document:</span>
           </div>
-          <select
+          <Select
+            id="clause-document"
             value={documentId || ''}
             onChange={handleDocumentChange}
-            className="min-w-[280px] rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            className="min-w-[280px]"
+            aria-label="Document"
           >
-            {documents.map(doc => (
+            {documents.map((doc) => (
               <option key={doc.document_id} value={doc.document_id}>
                 {doc.title ?? doc.document_id}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <DocumentHeader onExport={handleExport} onExportCsv={handleExportCsv} />
@@ -155,6 +167,8 @@ export function ClauseExplorerPage() {
           hasNext={hasNext} 
           hasPrev={hasPrev} 
         />
+      )}
+      </>
       )}
     </AppLayout>
   );

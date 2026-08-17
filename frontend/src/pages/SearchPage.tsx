@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
+import { PageHeader } from '../components/ui/page-header';
+import { Select } from '../components/ui/input';
 import { api } from '../lib/api';
 import { useSearch } from '../hooks/useSearch';
 import type { SearchResult } from '../hooks/useSearch';
@@ -32,7 +34,7 @@ function Highlight({ text, q }: { text: string; q: string }) {
     <>
       {parts.map((part, i) =>
         re.test(part) ? (
-          <mark key={i} className="bg-yellow-300/50 text-foreground rounded px-0.5">{part}</mark>
+          <mark key={i} className="bg-warning/20 text-foreground rounded px-0.5">{part}</mark>
         ) : (
           <span key={i}>{part}</span>
         )
@@ -48,9 +50,9 @@ const TYPE_ICON: Record<string, ReactNode> = {
 };
 
 const TYPE_BADGE: Record<string, string> = {
-  CLAUSE: 'bg-blue-500/10 text-blue-500',
-  OBLIGATION: 'bg-purple-500/10 text-purple-500',
-  DOCUMENT: 'bg-amber-500/10 text-amber-500',
+  CLAUSE: 'bg-accent/10 text-accent',
+  OBLIGATION: 'bg-accent/10 text-accent',
+  DOCUMENT: 'bg-warning/10 text-warning',
 };
 
 export const SearchPage = () => {
@@ -93,13 +95,11 @@ export const SearchPage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground">Search</h1>
-          <p className="mt-2 text-sm text-gray-400">
-            Keyword and semantic search across clauses, obligations, and documents.
-          </p>
-        </div>
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          title="Search"
+          description="Keyword and semantic search across clauses, obligations, and documents."
+        />
 
         {/* Query */}
         <div className="relative mb-4">
@@ -139,26 +139,32 @@ export const SearchPage = () => {
             ))}
           </div>
 
-          <select
-            value={type}
-            onChange={e => onFilterChange({ type: e.target.value })}
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            {TYPES.map(t => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
+          <div className="w-48">
+            <Select
+              id="search-type"
+              value={type}
+              onChange={(e) => onFilterChange({ type: e.target.value })}
+              aria-label="Result type"
+            >
+              {TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </Select>
+          </div>
 
-          <select
-            value={documentId}
-            onChange={e => onFilterChange({ documentId: e.target.value })}
-            className="rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">All documents</option>
-            {documents.map(d => (
-              <option key={d.document_id} value={d.document_id}>{d.title ?? d.document_id}</option>
-            ))}
-          </select>
+          <div className="w-56">
+            <Select
+              id="search-document"
+              value={documentId}
+              onChange={(e) => onFilterChange({ documentId: e.target.value })}
+              aria-label="Document"
+            >
+              <option value="">All documents</option>
+              {documents.map((d) => (
+                <option key={d.document_id} value={d.document_id}>{d.title ?? d.document_id}</option>
+              ))}
+            </Select>
+          </div>
         </div>
 
         {/* Results */}
@@ -167,7 +173,7 @@ export const SearchPage = () => {
             <Loader2 className="w-6 h-6 animate-spin mr-2" /> Searching...
           </div>
         ) : error ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm text-red-500">{error}</div>
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">{error}</div>
         ) : !q.trim() ? (
           <div className="text-center py-16 text-muted-foreground">Type a query to begin searching.</div>
         ) : results.length === 0 ? (

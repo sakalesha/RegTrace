@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ListTodo, XCircle, FileSpreadsheet } from "lucide-react";
+import { ListTodo, FileSpreadsheet } from "lucide-react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { GenerateTasksPanel } from "../components/tasks/GenerateTasksPanel";
 import { TaskFilterBar, type TaskFilterValues } from "../components/tasks/TaskFilterBar";
@@ -7,30 +7,19 @@ import { TaskDetailPanel } from "../components/tasks/TaskDetailPanel";
 import { TaskStatusBadge } from "../components/tasks/TaskStatusBadge";
 import { useTasks } from "../hooks/useTasks";
 import { api } from "../lib/api";
+import { downloadCsv } from "../lib/csv";
 import type { Task } from "../data/taskMockData";
+import { PageHeader } from "../components/ui/page-header";
+import { Button } from "../components/ui/button";
+import { Select } from "../components/ui/input";
+import { EmptyState } from "../components/ui/empty-state";
+import { PageLoading } from "../components/ui/spinner";
 
 const initialFilters: TaskFilterValues = { status: "", department: "", priority: "", search: "" };
 
 interface DocumentOption {
   document_id: string;
   title?: string;
-}
-
-function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
-  const esc = (v: string | number) => {
-    const s = String(v ?? '');
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const csv = [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
 }
 
 export function TasksPage() {
@@ -113,123 +102,105 @@ export function TasksPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <ListTodo className="w-7 h-7 text-primary" />
-              Task Management
-            </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Operational compliance tasks generated from approved obligations.
-            </p>
-          </div>
-
-          <button
+      <PageHeader
+        title="Task Management"
+        description="Operational compliance tasks generated from approved obligations."
+        actions={
+          <Button
+            variant="outline"
             onClick={handleExportCsv}
             disabled={filteredTasks.length === 0}
-            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-150 ${
-              filteredTasks.length > 0
-                ? 'border border-border bg-card text-foreground hover:bg-muted/80'
-                : 'bg-muted text-muted-foreground cursor-not-allowed'
-            }`}
+            aria-disabled={filteredTasks.length === 0}
           >
-            <FileSpreadsheet className="w-5 h-5" />
-            <span>Export CSV</span>
-          </button>
+            <FileSpreadsheet className="h-4 w-4" />
+            Export CSV
+          </Button>
+        }
+      />
+
+      <div className="space-y-6">
+        <GenerateTasksPanel documents={documents} onGenerated={() => fetchTasks(undefined, false)} />
+
+        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+          <label htmlFor="task-document-filter" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            View tasks for document
+          </label>
+          <Select
+            id="task-document-filter"
+            value={selectedDocument}
+            onChange={(e) => {
+              setSelectedDocument(e.target.value);
+              setActiveTaskId(null);
+            }}
+          >
+            <option value="">All documents</option>
+            {documents.map(doc => (
+              <option key={doc.document_id} value={doc.document_id}>
+                {doc.title ?? doc.document_id}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {selectedDocument
+              ? <>Showing tasks for <span className="font-medium text-foreground">{documents.find(d => d.document_id === selectedDocument)?.title ?? selectedDocument}</span>.</>
+              : "Select a document to narrow down to its compliance tasks, or leave on \"All documents\" to see everything."}
+          </p>
         </div>
 
-        <div className="space-y-6">
-          <GenerateTasksPanel documents={documents} onGenerated={() => fetchTasks(undefined, false)} />
-
-          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-              View tasks for document
-            </label>
-            <select
-              value={selectedDocument}
-              onChange={e => {
-                setSelectedDocument(e.target.value);
-                setActiveTaskId(null);
-              }}
-              className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">All documents</option>
-              {documents.map(doc => (
-                <option key={doc.document_id} value={doc.document_id}>
-                  {doc.title ?? doc.document_id}
-                </option>
-              ))}
-            </select>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {selectedDocument
-                ? <>Showing tasks for <span className="font-medium text-foreground">{documents.find(d => d.document_id === selectedDocument)?.title ?? selectedDocument}</span>.</>
-                : "Select a document to narrow down to its compliance tasks, or leave on \"All documents\" to see everything."}
-            </p>
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            <FileSpreadsheet className="h-4 w-4" />
+            {error}
           </div>
+        )}
 
-          {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-center gap-2">
-              <XCircle className="w-4 h-4" />
-              {error}
-            </div>
-          )}
+        <TaskFilterBar
+          values={filters}
+          onChange={setFilters}
+          onReset={() => setFilters(initialFilters)}
+        />
 
-          <TaskFilterBar
-            values={filters}
-            onChange={setFilters}
-            onReset={() => setFilters(initialFilters)}
-          />
-
-          {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-20 space-y-4">
-              <div className="relative w-16 h-16">
-                <div className="absolute inset-0 rounded-full border-t-2 border-indigo-500 animate-spin"></div>
-                <div className="absolute inset-2 rounded-full border-r-2 border-purple-500 animate-spin" style={{ animationDirection: "reverse" }}></div>
-              </div>
-              <p className="text-indigo-500 font-medium animate-pulse">Loading compliance tasks...</p>
-            </div>
-          ) : (
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="w-full lg:w-2/3 space-y-4">
-                {filteredTasks.length === 0 ? (
-                  <div className="text-center py-12 border-2 border-dashed border-border rounded-2xl">
-                    <ListTodo className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-                    <p className="text-muted-foreground">
-                      No tasks found. Generate tasks for an approved document to get started.
-                    </p>
-                  </div>
-                ) : (
-                  filteredTasks.map(task => (
-                    <TaskRow
-                      key={task.id}
-                      task={task}
-                      isActive={task.id === activeTaskId}
-                      onClick={() => setActiveTaskId(task.id)}
-                    />
-                  ))
-                )}
-              </div>
-
-              <div className="w-full lg:w-1/3">
-                {activeTask ? (
-                  <TaskDetailPanel
-                    task={activeTask}
-                    onStatusChange={handleStatusChange}
-                    onAssign={handleAssign}
+        {isLoading ? (
+          <PageLoading label="Loading compliance tasks..." />
+        ) : (
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <div className="w-full space-y-4 lg:w-2/3">
+              {filteredTasks.length === 0 ? (
+                <EmptyState
+                  icon={ListTodo}
+                  title="No tasks found"
+                  description="Generate tasks for an approved document to get started."
+                />
+              ) : (
+                filteredTasks.map(task => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    isActive={task.id === activeTaskId}
+                    onClick={() => setActiveTaskId(task.id)}
                   />
-                ) : (
-                  <div className="sticky top-8 p-6 rounded-xl border border-border bg-card h-[calc(100vh-6rem)] flex flex-col items-center justify-center text-center shadow-sm">
-                    <ListTodo className="w-8 h-8 text-muted-foreground/40 mb-3" />
-                    <p className="text-sm text-muted-foreground">
-                      Select a task to view its details, update status, or reassign the owning department.
-                    </p>
-                  </div>
-                )}
-              </div>
+                ))
+              )}
             </div>
-          )}
-        </div>
+
+            <div className="w-full lg:w-1/3">
+              {activeTask ? (
+                <TaskDetailPanel
+                  task={activeTask}
+                  onStatusChange={handleStatusChange}
+                  onAssign={handleAssign}
+                />
+              ) : (
+                <div className="sticky top-8 flex h-[calc(100vh-6rem)] flex-col items-center justify-center rounded-xl border border-border bg-card p-6 text-center shadow-sm">
+                  <ListTodo className="mb-3 h-8 w-8 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">
+                    Select a task to view its details, update status, or reassign the owning department.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );
@@ -238,32 +209,32 @@ export function TasksPage() {
 function TaskRow({ task, isActive, onClick }: { task: Task; isActive: boolean; onClick: () => void }) {
   const priorityColor =
     task.priority === "Critical" ? "text-destructive" :
-    task.priority === "High" ? "text-orange-500" :
-    task.priority === "Medium" ? "text-blue-500" :
+    task.priority === "High" ? "text-warning" :
+    task.priority === "Medium" ? "text-accent" :
     "text-muted-foreground";
 
   return (
     <div
       onClick={onClick}
-      className={`p-5 rounded-xl border cursor-pointer transition-all duration-150 ${
-        isActive ? "border-primary shadow-sm bg-card" : "border-border bg-card hover:border-primary/50"
+      className={`cursor-pointer rounded-xl border p-5 transition-all duration-150 ${
+        isActive ? "border-primary bg-card shadow-sm" : "border-border bg-card hover:border-primary/50"
       }`}
     >
-      <div className="flex flex-wrap items-center gap-2 mb-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className={`text-xs font-semibold ${priorityColor}`}>{task.priority}</span>
         <TaskStatusBadge status={task.status} />
         {task.assigned_department && (
-          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">{task.assigned_department}</span>
+          <span className="rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">{task.assigned_department}</span>
         )}
         {task.clause_reference && (
-          <span className="text-xs font-mono text-muted-foreground bg-muted px-2 py-0.5 rounded">
+          <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">
             Clause: {task.clause_reference}
           </span>
         )}
       </div>
 
-      <p className="text-foreground font-medium leading-relaxed">{task.title}</p>
-      <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{task.description}</p>
+      <p className="font-medium leading-relaxed text-foreground">{task.title}</p>
+      <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{task.description}</p>
 
       <div className="mt-4 flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1.5">

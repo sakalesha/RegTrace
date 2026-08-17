@@ -43,7 +43,7 @@ export function RelatedObligationsPreview({ obligations }: RelatedObligationsPre
               
               <div className="flex flex-wrap items-center gap-3 text-sm mb-4">
                 <div className="flex items-center gap-1.5 text-muted-foreground bg-muted px-2 py-1 rounded-md">
-                  <span className="w-2 h-2 rounded-full bg-blue-500" />
+                  <span className="w-2 h-2 rounded-full bg-accent" />
                   {obligation.type}
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground bg-muted px-2 py-1 rounded-md">

@@ -1,25 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { api } from '../lib/api';
+import { downloadCsv } from '../lib/csv';
 import { anyDocumentProcessing } from '../lib/pipelineStatus';
-import { CheckCircle, XCircle, AlertCircle, Edit, Search, CheckSquare, Play, Loader2, FileSearch, FileSpreadsheet, History, X } from 'lucide-react';
-
-function downloadCsv(filename: string, headers: string[], rows: (string | number)[][]) {
-  const esc = (v: string | number) => {
-    const s = String(v ?? '');
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-  const csv = [headers.map(esc).join(','), ...rows.map(r => r.map(esc).join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
+import {
+  Loader2,
+  Edit,
+  CheckCircle2,
+  XCircle,
+  Play,
+  FileSpreadsheet,
+  FileSearch,
+  CheckSquare,
+  Search,
+  AlertCircle,
+  History,
+} from 'lucide-react';
+import { PageHeader } from '../components/ui/page-header';
+import { Card, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { StatusBadge, type Tone } from '../components/ui/StatusBadge';
+import { Select, Input, Textarea } from '../components/ui/input';
+import { Modal } from '../components/ui/modal';
+import { Drawer } from '../components/ui/drawer';
+import { EmptyState } from '../components/ui/empty-state';
+import { PageLoading } from '../components/ui/spinner';
 
 interface Obligation {
   id: string;
@@ -50,6 +55,18 @@ const EXTRACTING_STATUSES = new Set([
   'CLAUSES_CREATED',
   'EXTRACTING_OBLIGATIONS',
 ]);
+
+function obligationTone(status: string): Tone {
+  if (status === 'APPROVED') return 'success';
+  if (status === 'REJECTED') return 'destructive';
+  return 'warning';
+}
+
+function reviewActionTone(action: string): Tone {
+  if (action === 'APPROVE') return 'success';
+  if (action === 'REJECT') return 'destructive';
+  return 'warning';
+}
 
 export const ObligationsPage = () => {
   const [obligations, setObligations] = useState<Obligation[]>([]);
@@ -270,9 +287,9 @@ export const ObligationsPage = () => {
   };
 
   const getConfidenceBadge = (score: number) => {
-    if (score >= 0.9) return <span className="px-2 py-1 bg-green-500/10 text-green-500 rounded-full text-xs font-medium border border-green-500/20 shadow-[0_0_10px_rgba(34,197,94,0.2)]">High</span>;
-    if (score >= 0.7) return <span className="px-2 py-1 bg-yellow-500/10 text-yellow-500 rounded-full text-xs font-medium border border-yellow-500/20 shadow-[0_0_10px_rgba(234,179,8,0.2)]">Med</span>;
-    return <span className="px-2 py-1 bg-red-500/10 text-red-500 rounded-full text-xs font-medium border border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.2)] animate-pulse">Low</span>;
+    if (score >= 0.9) return <StatusBadge status="High" tone="success" icon={false} />;
+    if (score >= 0.7) return <StatusBadge status="Medium" tone="warning" icon={false} />;
+    return <StatusBadge status="Low" tone="destructive" icon={false} />;
   };
 
   const pendingObligations = obligations.filter(o => o.status === 'PENDING');
@@ -286,53 +303,43 @@ export const ObligationsPage = () => {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Obligation Review
-            </h1>
-            <p className="mt-2 text-sm text-gray-400">Validate AI-extracted regulatory requirements.</p>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <button
+      <PageHeader
+        title="Obligation Review"
+        description="Validate AI-extracted regulatory requirements."
+        actions={
+          <>
+            <Button
+              variant="outline"
               onClick={handleExportCsv}
               disabled={obligations.length === 0}
-              className={`px-4 py-2 rounded-xl flex items-center space-x-2 transition-all duration-150 ${
-                obligations.length > 0
-                  ? 'border border-border bg-card text-foreground hover:bg-muted/80'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
-              }`}
+              aria-disabled={obligations.length === 0}
             >
-              <FileSpreadsheet className="w-5 h-5" />
-              <span>Export CSV</span>
-            </button>
-
-            <button
+              <FileSpreadsheet className="h-4 w-4" />
+              Export CSV
+            </Button>
+            <Button
+              variant="primary"
               onClick={handleBulkApprove}
               disabled={selectedIds.size === 0}
-              className={`px-4 py-2 rounded-xl flex items-center space-x-2 transition-all duration-150 ${
-                selectedIds.size > 0
-                  ? 'bg-accent text-accent-foreground shadow-sm hover:bg-accent/90'
-                  : 'bg-muted text-muted-foreground cursor-not-allowed'
-              }`}
+              aria-disabled={selectedIds.size === 0}
             >
-              <CheckSquare className="w-5 h-5" />
-              <span>Bulk Approve ({selectedIds.size})</span>
-            </button>
-          </div>
-        </div>
+              <CheckSquare className="h-4 w-4" />
+              Bulk Approve ({selectedIds.size})
+            </Button>
+          </>
+        }
+      />
 
-        {/* Extraction status banner */}
-        <div className="mb-6 rounded-xl border border-border bg-card p-4 shadow-sm">
-          <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+      {/* Document filter */}
+      <Card className="mt-6">
+        <CardContent className="space-y-1.5">
+          <label htmlFor="obligation-document-filter" className="block text-xs font-medium text-muted-foreground">
             View obligations for document
           </label>
-          <select
+          <Select
+            id="obligation-document-filter"
             value={selectedDocument}
-            onChange={e => handleDocumentFilterChange(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            onChange={(e) => handleDocumentFilterChange(e.target.value)}
           >
             <option value="">All documents</option>
             {documents.map(doc => (
@@ -340,157 +347,151 @@ export const ObligationsPage = () => {
                 {doc.title ?? doc.document_id}
               </option>
             ))}
-          </select>
-          <p className="mt-2 text-xs text-muted-foreground">
+          </Select>
+          <p className="text-xs text-muted-foreground">
             {selectedDocument
               ? <>Showing obligations for <span className="font-medium text-foreground">{documents.find(d => d.document_id === selectedDocument)?.title ?? selectedDocument}</span>.</>
               : 'Select a document to review just its extracted obligations, or leave on "All documents" to see everything.'}
           </p>
+        </CardContent>
+      </Card>
+
+      {/* Extraction status banners */}
+      {extractingDocs.length > 0 && (
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm">
+          <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-warning" aria-hidden="true" />
+          <div>
+            <p className="font-medium text-warning">Obligation extraction in progress</p>
+            <p className="mt-1 text-warning/80">
+              {extractingDocs.map(d => d.title ?? d.document_id).join(', ')} is being analyzed.
+              Obligations will appear here automatically once extraction completes.
+            </p>
+          </div>
         </div>
+      )}
 
-        {/* Extraction status banner */}
-        {extractingDocs.length > 0 && (
-          <div className="mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 flex items-start gap-3">
-            <Loader2 className="w-5 h-5 text-amber-500 animate-spin mt-0.5 shrink-0" />
-            <div className="text-sm">
-              <p className="font-medium text-amber-600 dark:text-amber-400">
-                Obligation extraction in progress
-              </p>
-              <p className="mt-1 text-amber-600/80 dark:text-amber-400/80">
-                {extractingDocs.map(d => d.title ?? d.document_id).join(', ')} is being analyzed.
-                Obligations will appear here automatically once extraction completes.
-              </p>
-            </div>
+      {failedDocs.length > 0 && (
+        <div className="mt-6 flex items-start gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+          <div>
+            <p className="font-medium text-destructive">
+              Extraction failed for {failedDocs.map(d => d.title ?? d.document_id).join(', ')}
+            </p>
+            <p className="mt-1 text-destructive/80">
+              Select the document below and click "Start Extraction" to retry.
+            </p>
           </div>
-        )}
+        </div>
+      )}
 
-        {failedDocs.length > 0 && (
-          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/5 p-4 flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
-            <div className="text-sm">
-              <p className="font-medium text-red-500">
-                Extraction failed for {failedDocs.map(d => d.title ?? d.document_id).join(', ')}
-              </p>
-              <p className="mt-1 text-red-500/80">
-                Select the document below and click "Start Extraction" to retry.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Manual extraction control */}
-        {documents.length > 0 && (
-          <div className="mb-6 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-            <div className="flex-1 min-w-[220px]">
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Document
-              </label>
-              <select
-                value={extractDocumentId}
-                onChange={e => setExtractDocumentId(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">Select a document to extract obligations...</option>
-                {documents.map(doc => (
-                  <option key={doc.document_id} value={doc.document_id}>
-                    {doc.title ?? doc.document_id} ({doc.processing_status ?? 'UNKNOWN'})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              onClick={() => handleStartExtraction(extractDocumentId)}
-              disabled={!extractDocumentId || isExtracting}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors"
+      {/* Manual extraction control */}
+      {documents.length > 0 && (
+        <div className="mt-6 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="min-w-[220px] flex-1">
+            <label htmlFor="extract-document" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Document
+            </label>
+            <Select
+              id="extract-document"
+              value={extractDocumentId}
+              onChange={(e) => setExtractDocumentId(e.target.value)}
             >
-              {isExtracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-              {isExtracting ? "Starting..." : "Start Extraction"}
-            </button>
-            {extractError && <p className="text-xs text-red-500 basis-full mt-1">{extractError}</p>}
+              <option value="">Select a document to extract obligations...</option>
+              {documents.map(doc => (
+                <option key={doc.document_id} value={doc.document_id}>
+                  {doc.title ?? doc.document_id} ({doc.processing_status ?? 'UNKNOWN'})
+                </option>
+              ))}
+            </Select>
           </div>
-        )}
+          <Button
+            variant="primary"
+            onClick={() => handleStartExtraction(extractDocumentId)}
+            disabled={!extractDocumentId || isExtracting}
+            aria-disabled={!extractDocumentId || isExtracting}
+          >
+            {isExtracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            {isExtracting ? "Starting..." : "Start Extraction"}
+          </Button>
+          {extractError && <p className="basis-full mt-1 text-xs text-destructive">{extractError}</p>}
+        </div>
+      )}
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 space-y-4">
-            <div className="relative w-16 h-16">
-              <div className="absolute inset-0 rounded-full border-t-2 border-indigo-500 animate-spin"></div>
-              <div className="absolute inset-2 rounded-full border-r-2 border-purple-500 animate-spin" style={{ animationDirection: 'reverse' }}></div>
-            </div>
-            <p className="text-indigo-500 font-medium animate-pulse">AI is analyzing regulatory text...</p>
-          </div>
-        ) : (
-          <div className="flex flex-col lg:flex-row gap-6">
-            {/* Left side: List */}
-            <div className="w-full lg:w-2/3 space-y-4">
-              {totalCount > 0 && (
-                <div className="flex items-center justify-between px-1">
-                  <p className="text-sm text-muted-foreground">
-                    {totalCount} obligation{totalCount > 1 ? 's' : ''}
-                    {pendingCount > 0 && <span className="text-amber-500"> · {pendingCount} pending review</span>}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedDocument
-                      ? (documents.find(d => d.document_id === selectedDocument)?.title ?? selectedDocument)
-                      : 'All documents'}
-                  </p>
-                </div>
-              )}
+      {loading ? (
+        <PageLoading label="AI is analyzing regulatory text..." />
+      ) : (
+        <div className="mt-6 flex flex-col gap-6 lg:flex-row">
+          {/* Left side: List */}
+          <div className="w-full space-y-4 lg:w-2/3">
+            {totalCount > 0 && (
+              <div className="flex items-center justify-between px-1">
+                <p className="text-sm text-muted-foreground">
+                  {totalCount} obligation{totalCount > 1 ? 's' : ''}
+                  {pendingCount > 0 && <span className="text-warning"> · {pendingCount} pending review</span>}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedDocument
+                    ? (documents.find(d => d.document_id === selectedDocument)?.title ?? selectedDocument)
+                    : 'All documents'}
+                </p>
+              </div>
+            )}
 
-              {obligations.map(ob => (
-                <div
-                  key={ob.id}
-                  onClick={() => setActiveObId(ob.id)}
-                  className={`p-5 rounded-xl border transition-all duration-150 cursor-pointer ${
-                    activeObId === ob.id
-                      ? 'border-primary shadow-sm bg-card'
-                      : 'border-border bg-card hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-start space-x-3">
+            {obligations.map(ob => (
+              <Card
+                key={ob.id}
+                onClick={() => setActiveObId(ob.id)}
+                className={`cursor-pointer transition-all duration-150 ${
+                  activeObId === ob.id ? 'border-primary shadow-md' : 'hover:border-primary/50'
+                }`}
+              >
+                <CardContent>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
                       <input
                         type="checkbox"
+                        aria-label={`Select obligation ${ob.id}`}
                         checked={selectedIds.has(ob.id)}
                         onChange={(e) => { e.stopPropagation(); toggleSelect(ob.id); }}
-                        className="mt-1.5 w-5 h-5 rounded border-input text-primary focus:ring-primary"
+                        className="mt-1.5 h-5 w-5 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
                       />
                       <div>
-                        <div className="flex items-center space-x-3 mb-2">
-                          <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded">Clause: {ob.clause_id}</span>
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
+                          <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground">Clause: {ob.clause_id}</span>
                           {getConfidenceBadge(ob.confidence_score)}
-                          {ob.is_mandatory && <span className="text-xs font-semibold text-red-500 border border-red-200 bg-red-50 dark:bg-red-900/20 px-2 py-0.5 rounded">Mandatory</span>}
-                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                            ob.status === 'APPROVED' ? 'bg-green-500/10 text-green-500' :
-                            ob.status === 'REJECTED' ? 'bg-red-500/10 text-red-500' :
-                            'bg-amber-500/10 text-amber-500'
-                          }`}>{ob.status}</span>
+                          {ob.is_mandatory && (
+                            <span className="rounded-md border border-destructive/20 bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
+                              Mandatory
+                            </span>
+                          )}
+                          <StatusBadge tone={obligationTone(ob.status)}>{ob.status}</StatusBadge>
                         </div>
-                        <p className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed mb-2">{ob.action}</p>
+                        <p className="mb-2 font-medium leading-relaxed text-foreground">{ob.action}</p>
 
                         <div className="mt-4 grid grid-cols-2 gap-3">
                           <div className="flex flex-col">
-                            <span className="text-[10px] uppercase tracking-wider text-gray-500">Actor</span>
-                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{ob.actor}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Actor</span>
+                            <span className="text-sm font-medium text-foreground">{ob.actor}</span>
                           </div>
 
                           {ob.condition && (
                             <div className="flex flex-col">
-                              <span className="text-[10px] uppercase tracking-wider text-gray-500">Condition</span>
-                              <span className="text-sm text-gray-700 dark:text-gray-300">{ob.condition}</span>
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Condition</span>
+                              <span className="text-sm text-foreground">{ob.condition}</span>
                             </div>
                           )}
 
                           {ob.deadline && (
                             <div className="flex flex-col">
-                              <span className="text-[10px] uppercase tracking-wider text-gray-500">Deadline</span>
-                              <span className="text-sm text-gray-700 dark:text-gray-300">{ob.deadline}</span>
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Deadline</span>
+                              <span className="text-sm text-foreground">{ob.deadline}</span>
                             </div>
                           )}
 
                           {ob.frequency && (
                             <div className="flex flex-col">
-                              <span className="text-[10px] uppercase tracking-wider text-gray-500">Frequency</span>
-                              <span className="text-sm text-gray-700 dark:text-gray-300">{ob.frequency}</span>
+                              <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Frequency</span>
+                              <span className="text-sm text-foreground">{ob.frequency}</span>
                             </div>
                           )}
                         </div>
@@ -498,87 +499,91 @@ export const ObligationsPage = () => {
                     </div>
                   </div>
 
-                  <div className="mt-5 flex justify-end space-x-2 border-t dark:border-gray-800 pt-4">
+                  <div className="mt-5 flex items-center justify-end gap-2 border-t border-border pt-4">
                     <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); handleReview(ob.id, 'REJECTED'); }}
                       title="Reject"
-                      className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                      aria-label="Reject obligation"
+                      className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                     >
-                      <XCircle className="w-5 h-5" />
+                      <XCircle className="h-5 w-5" />
                     </button>
                     <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); openHistory(ob.id); }}
                       title="Review history"
-                      className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      aria-label="Review history"
+                      className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
                     >
-                      <History className="w-5 h-5" />
+                      <History className="h-5 w-5" />
                     </button>
                     <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); openReviewModal(ob); }}
                       title="Edit & review"
-                      className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      aria-label="Edit and review obligation"
+                      className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent/10 hover:text-accent"
                     >
-                      <Edit className="w-5 h-5" />
+                      <Edit className="h-5 w-5" />
                     </button>
                     <button
+                      type="button"
                       onClick={(e) => { e.stopPropagation(); handleReview(ob.id, 'APPROVED'); }}
-                      className="px-4 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg font-medium transition-colors flex items-center space-x-1"
+                      className="inline-flex items-center gap-1 rounded-md bg-primary px-4 py-1.5 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                     >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>Approve</span>
+                      <CheckCircle2 className="h-4 w-4" />
+                      Approve
                     </button>
                   </div>
-                </div>
-              ))}
+                </CardContent>
+              </Card>
+            ))}
 
-              {/* Empty states - distinguish extraction in progress from genuinely empty */}
-              {totalCount === 0 && hasNoObligations && (
-                <div className="text-center py-12 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
-                  <FileSearch className="w-12 h-12 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No obligations yet</p>
-                  <p className="mt-1 text-sm text-gray-400">
-                    Upload a document and processing will extract obligations in the background,
-                    or select a document above to start extraction manually.
-                  </p>
-                </div>
-              )}
+            {/* Empty states - distinguish extraction in progress from genuinely empty */}
+            {totalCount === 0 && hasNoObligations && (
+              <EmptyState
+                icon={FileSearch}
+                title="No obligations yet"
+                description="Upload a document and processing will extract obligations in the background, or select a document above to start extraction manually."
+              />
+            )}
 
-              {totalCount === 0 && extractingDocs.length > 0 && (
-                <div className="text-center py-12 border-2 border-dashed border-amber-300 dark:border-amber-800 rounded-2xl">
-                  <Loader2 className="w-12 h-12 text-amber-400 mx-auto mb-3 animate-spin" />
-                  <p className="text-amber-500 font-medium">Extracting obligations...</p>
-                  <p className="mt-1 text-sm text-amber-500/70">
-                    New obligations will appear here as soon as extraction completes.
-                  </p>
-                </div>
-              )}
+            {totalCount === 0 && extractingDocs.length > 0 && (
+              <EmptyState
+                icon={Loader2}
+                variant="extracting"
+                title="Extracting obligations..."
+                description="New obligations will appear here as soon as extraction completes."
+              />
+            )}
 
-              {totalCount === 0 && failedDocs.length > 0 && (
-                <div className="text-center py-12 border-2 border-dashed border-red-300 dark:border-red-800 rounded-2xl">
-                  <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-3" />
-                  <p className="text-red-500 font-medium">Extraction failed for a document</p>
-                  <p className="mt-1 text-sm text-red-500/70">
-                    Use the "Start Extraction" control above to retry.
-                  </p>
-                </div>
-              )}
-            </div>
+            {totalCount === 0 && failedDocs.length > 0 && (
+              <EmptyState
+                icon={AlertCircle}
+                variant="error"
+                title="Extraction failed for a document"
+                description='Use the "Start Extraction" control above to retry.'
+              />
+            )}
+          </div>
 
-            {/* Right side: Context Pane */}
-            <div className="w-full lg:w-1/3">
-              <div className="sticky top-8 p-6 rounded-xl border border-border bg-card h-[calc(100vh-6rem)] overflow-y-auto shadow-sm">
-                <h3 className="text-lg font-semibold flex items-center space-x-2 mb-4">
-                  <Search className="w-5 h-5 text-primary" />
-                  <span>Context View</span>
+          {/* Right side: Context Pane */}
+          <div className="w-full lg:w-1/3">
+            <Card className="sticky top-8 h-[calc(100vh-6rem)] overflow-y-auto">
+              <CardContent>
+                <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
+                  <Search className="h-5 w-5 text-primary" />
+                  Context View
                 </h3>
                 {activeObId ? (
                   <div>
-                    <p className="text-sm text-gray-500 mb-4">Original regulatory text for this obligation:</p>
-                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-800 text-sm leading-relaxed text-gray-700 dark:text-gray-300 italic">
+                    <p className="mb-4 text-sm text-muted-foreground">Original regulatory text for this obligation:</p>
+                    <div className="rounded-xl border border-border bg-muted/50 p-4 text-sm leading-relaxed italic text-foreground">
                       {loadingClause ? (
-                        <span className="flex items-center space-x-2 text-indigo-400 animate-pulse">
-                          <span className="w-4 h-4 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></span>
-                          <span>Loading original text...</span>
+                        <span className="flex items-center gap-2 text-primary/70">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading original text...
                         </span>
                       ) : (
                         activeClauseText || "No text available."
@@ -586,134 +591,144 @@ export const ObligationsPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-48 text-center px-4">
-                    <AlertCircle className="w-8 h-8 text-gray-300 dark:text-gray-700 mb-3" />
-                    <p className="text-sm text-gray-400">Select an obligation to view its original regulatory context here.</p>
+                  <div className="flex h-48 flex-col items-center justify-center px-4 text-center">
+                    <AlertCircle className="mb-3 h-8 w-8 text-muted-foreground/40" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">Select an obligation to view its original regulatory context here.</p>
                   </div>
                 )}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Review modal: edit obligation fields + reviewer/comment */}
-      {reviewModalOb && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setReviewModalOb(null)}>
-          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground">Review Obligation</h3>
-              <button onClick={() => setReviewModalOb(null)} className="p-1 text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
+      <Modal
+        open={!!reviewModalOb}
+        onClose={() => setReviewModalOb(null)}
+        title="Review Obligation"
+        footer={
+          <>
+            <Button variant="destructive" onClick={() => submitReview('REJECTED')}>Reject</Button>
+            <Button variant="outline" onClick={() => submitReview('EDITED')}>Save Edit</Button>
+            <Button variant="primary" onClick={() => submitReview('APPROVED')}>Approve</Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <label htmlFor="edit-actor" className="mb-1 block text-xs font-medium text-muted-foreground">Actor</label>
+            <Input
+              id="edit-actor"
+              value={editForm.actor}
+              onChange={(e) => setEditForm({ ...editForm, actor: e.target.value })}
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-action" className="mb-1 block text-xs font-medium text-muted-foreground">Action</label>
+            <Textarea
+              id="edit-action"
+              rows={3}
+              value={editForm.action}
+              onChange={(e) => setEditForm({ ...editForm, action: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="edit-condition" className="mb-1 block text-xs font-medium text-muted-foreground">Condition</label>
+              <Input
+                id="edit-condition"
+                value={editForm.condition}
+                onChange={(e) => setEditForm({ ...editForm, condition: e.target.value })}
+              />
             </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Actor</label>
-                <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={editForm.actor} onChange={e => setEditForm({ ...editForm, actor: e.target.value })} />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-muted-foreground mb-1">Action</label>
-                <textarea rows={3} className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                  value={editForm.action} onChange={e => setEditForm({ ...editForm, action: e.target.value })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Condition</label>
-                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={editForm.condition} onChange={e => setEditForm({ ...editForm, condition: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Deadline</label>
-                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={editForm.deadline} onChange={e => setEditForm({ ...editForm, deadline: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Frequency</label>
-                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    value={editForm.frequency} onChange={e => setEditForm({ ...editForm, frequency: e.target.value })} />
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center space-x-2 text-sm text-foreground">
-                    <input type="checkbox" checked={editForm.is_mandatory}
-                      onChange={e => setEditForm({ ...editForm, is_mandatory: e.target.checked })} />
-                    <span>Mandatory</span>
-                  </label>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Reviewer</label>
-                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Optional" value={reviewReviewer} onChange={e => setReviewReviewer(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-muted-foreground mb-1">Note</label>
-                  <input className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                    placeholder="Optional comment" value={reviewComment} onChange={e => setReviewComment(e.target.value)} />
-                </div>
-              </div>
+            <div>
+              <label htmlFor="edit-deadline" className="mb-1 block text-xs font-medium text-muted-foreground">Deadline</label>
+              <Input
+                id="edit-deadline"
+                value={editForm.deadline}
+                onChange={(e) => setEditForm({ ...editForm, deadline: e.target.value })}
+              />
             </div>
-
-            <div className="mt-6 flex justify-end space-x-2">
-              <button onClick={() => submitReview('REJECTED')}
-                className="px-4 py-2 rounded-lg border border-red-500/30 text-red-500 hover:bg-red-500/10 font-medium transition-colors">Reject</button>
-              <button onClick={() => submitReview('EDITED')}
-                className="px-4 py-2 rounded-lg border border-border bg-muted/60 text-foreground hover:bg-muted font-medium transition-colors">Save Edit</button>
-              <button onClick={() => submitReview('APPROVED')}
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-colors">Approve</button>
+            <div>
+              <label htmlFor="edit-frequency" className="mb-1 block text-xs font-medium text-muted-foreground">Frequency</label>
+              <Input
+                id="edit-frequency"
+                value={editForm.frequency}
+                onChange={(e) => setEditForm({ ...editForm, frequency: e.target.value })}
+              />
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <input
+                  type="checkbox"
+                  checked={editForm.is_mandatory}
+                  onChange={(e) => setEditForm({ ...editForm, is_mandatory: e.target.checked })}
+                  className="h-4 w-4 rounded border-input text-primary focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                Mandatory
+              </label>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="edit-reviewer" className="mb-1 block text-xs font-medium text-muted-foreground">Reviewer</label>
+              <Input
+                id="edit-reviewer"
+                placeholder="Optional"
+                value={reviewReviewer}
+                onChange={(e) => setReviewReviewer(e.target.value)}
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-note" className="mb-1 block text-xs font-medium text-muted-foreground">Note</label>
+              <Input
+                id="edit-note"
+                placeholder="Optional comment"
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+              />
             </div>
           </div>
         </div>
-      )}
+      </Modal>
 
       {/* Review history drawer */}
-      {historyOb && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/50" onClick={() => setHistoryOb(null)}>
-          <div className="w-full max-w-md h-full overflow-y-auto bg-card border-l border-border p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <History className="w-5 h-5 text-primary" /> Review History
-              </h3>
-              <button onClick={() => setHistoryOb(null)} className="p-1 text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {historyLoading ? (
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            ) : historyReviews.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No reviews recorded yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {historyReviews.map((r) => (
-                  <div key={r.review_id} className="rounded-xl border border-border bg-background p-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                        r.action === 'APPROVE' ? 'bg-green-500/10 text-green-500' :
-                        r.action === 'REJECT' ? 'bg-red-500/10 text-red-500' :
-                        'bg-amber-500/10 text-amber-500'
-                      }`}>{r.action}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(r.created_at).toLocaleString()}
-                      </span>
-                    </div>
-                    {r.reviewer && <p className="text-sm text-foreground"><span className="text-muted-foreground">Reviewer: </span>{r.reviewer}</p>}
-                    {r.comment && <p className="text-sm text-foreground mt-1">{r.comment}</p>}
-                    {Object.keys(r.changes || {}).length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Changed: {Object.keys(r.changes).join(', ')}
-                      </p>
-                    )}
-                  </div>
-                ))}
+      <Drawer
+        open={!!historyOb}
+        onClose={() => setHistoryOb(null)}
+        title={
+          <span className="flex items-center gap-2">
+            <History className="h-5 w-5 text-primary" /> Review History
+          </span>
+        }
+      >
+        {historyLoading ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : historyReviews.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No reviews recorded yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {historyReviews.map((r) => (
+              <div key={r.review_id} className="rounded-xl border border-border bg-background p-4">
+                <div className="mb-1 flex items-center justify-between">
+                  <StatusBadge tone={reviewActionTone(r.action)}>{r.action}</StatusBadge>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(r.created_at).toLocaleString()}
+                  </span>
+                </div>
+                {r.reviewer && <p className="text-sm text-foreground"><span className="text-muted-foreground">Reviewer: </span>{r.reviewer}</p>}
+                {r.comment && <p className="mt-1 text-sm text-foreground">{r.comment}</p>}
+                {Object.keys(r.changes || {}).length > 0 && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Changed: {Object.keys(r.changes).join(', ')}
+                  </p>
+                )}
               </div>
-            )}
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </Drawer>
     </AppLayout>
   );
 };

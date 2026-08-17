@@ -3,12 +3,23 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useGap } from "../hooks/useGap";
+import { SeverityBadge } from "../components/ui/StatusBadge";
+import { PageHeader } from "../components/ui/page-header";
+import { Select } from "../components/ui/input";
+import { PageLoading } from "../components/ui/spinner";
 
-const SEVERITY_META: Record<string, { label: string; color: string }> = {
-  CRITICAL: { label: "Critical", color: "#ef4444" },
-  HIGH: { label: "High", color: "#f97316" },
-  MEDIUM: { label: "Medium", color: "#f59e0b" },
-  LOW: { label: "Low", color: "#94a3b8" },
+const SEVERITY_META: Record<string, { label: string }> = {
+  CRITICAL: { label: "Critical" },
+  HIGH: { label: "High" },
+  MEDIUM: { label: "Medium" },
+  LOW: { label: "Low" },
+};
+
+const SEVERITY_VALUE_CLASS: Record<string, string> = {
+  CRITICAL: "text-destructive",
+  HIGH: "text-warning",
+  MEDIUM: "text-info",
+  LOW: "text-muted-foreground",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -22,18 +33,6 @@ const TYPE_LABELS: Record<string, string> = {
   EVIDENCE_SUBMITTED_PENDING: "Evidence pending",
   EVIDENCE_REJECTED: "Evidence rejected",
 };
-
-function SeverityBadge({ severity }: { severity: string }) {
-  const meta = SEVERITY_META[severity] || { label: severity, color: "#94a3b8" };
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-      style={{ backgroundColor: `${meta.color}1a`, color: meta.color, border: `1px solid ${meta.color}55` }}
-    >
-      {meta.label}
-    </span>
-  );
-}
 
 export function GapAnalysisPage() {
   const { overview, items, isLoading, error } = useGap();
@@ -49,16 +48,7 @@ export function GapAnalysisPage() {
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 rounded-full border-t-2 border-indigo-500 animate-spin"></div>
-            <div
-              className="absolute inset-2 rounded-full border-r-2 border-purple-500 animate-spin"
-              style={{ animationDirection: "reverse" }}
-            ></div>
-          </div>
-          <p className="text-indigo-500 font-medium animate-pulse">Loading Gap Analysis...</p>
-        </div>
+        <PageLoading label="Loading Gap Analysis..." />
       </AppLayout>
     );
   }
@@ -67,10 +57,11 @@ export function GapAnalysisPage() {
   const sevCards = Object.entries(SEVERITY_META).map(([key, meta]) => ({
     ...meta,
     value: sevCounts[key] || 0,
+    valueClass: SEVERITY_VALUE_CLASS[key] || "text-foreground",
   }));
 
   const overviewCards = [
-    { label: "Total Gaps", value: overview?.total_gaps ?? 0, color: "#6366f1" },
+    { label: "Total Gaps", value: overview?.total_gaps ?? 0, valueClass: "text-accent" },
     ...sevCards,
   ];
 
@@ -83,12 +74,10 @@ export function GapAnalysisPage() {
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Gap Analysis</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Concrete, prioritized compliance gaps across obligations, tasks, and evidence.
-          </p>
-        </div>
+        <PageHeader
+          title="Gap Analysis"
+          description="Concrete, prioritized compliance gaps across obligations, tasks, and evidence."
+        />
 
         {error && (
           <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
@@ -98,18 +87,16 @@ export function GapAnalysisPage() {
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {overviewCards.map((s) => (
-            <Card key={s.label} className="shadow-sm border border-border bg-card">
+            <Card key={s.label} className="border border-border bg-card shadow-sm">
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">{s.label}</p>
-                <p className="text-3xl font-semibold mt-1" style={{ color: s.color }}>
-                  {s.value}
-                </p>
+                <p className={`mt-1 text-3xl font-semibold ${s.valueClass}`}>{s.value}</p>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        <Card className="shadow-sm border border-border bg-card">
+        <Card className="border border-border bg-card shadow-sm">
           <CardHeader>
             <CardTitle>Gaps by Type</CardTitle>
             <CardDescription>Volume of gaps per gap type</CardDescription>
@@ -151,49 +138,58 @@ export function GapAnalysisPage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border border-border bg-card">
+        <Card className="border border-border bg-card shadow-sm">
           <CardHeader>
             <CardTitle>Gap Register</CardTitle>
             <CardDescription>Every gap with severity and recommended remediation</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-3 mb-4">
-              <select
-                value={severityFilter}
-                onChange={(e) => setSeverityFilter(e.target.value)}
-                className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
-              >
-                <option value="">All severities</option>
-                {Object.entries(SEVERITY_META).map(([k, m]) => (
-                  <option key={k} value={k}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground"
-              >
-                <option value="">All types</option>
-                {Object.entries(TYPE_LABELS).map(([k, label]) => (
-                  <option key={k} value={k}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+            <div className="mb-4 flex flex-wrap gap-3">
+              <div className="flex flex-col gap-1">
+                <label htmlFor="gap-severity" className="text-xs font-medium text-muted-foreground">Severity</label>
+                <Select
+                  id="gap-severity"
+                  value={severityFilter}
+                  onChange={(e) => setSeverityFilter(e.target.value)}
+                  className="min-w-[180px]"
+                >
+                  <option value="">All severities</option>
+                  {Object.entries(SEVERITY_META).map(([k, m]) => (
+                    <option key={k} value={k}>
+                      {m.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label htmlFor="gap-type" className="text-xs font-medium text-muted-foreground">Type</label>
+                <Select
+                  id="gap-type"
+                  value={typeFilter}
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                  className="min-w-[180px]"
+                >
+                  <option value="">All types</option>
+                  {Object.entries(TYPE_LABELS).map(([k, label]) => (
+                    <option key={k} value={k}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
+                <caption className="sr-only">Gap register</caption>
                 <thead>
-                  <tr className="text-left text-muted-foreground border-b border-border">
-                    <th className="py-2 pr-4 font-medium">Severity</th>
-                    <th className="py-2 pr-4 font-medium">Obligation / Task</th>
-                    <th className="py-2 pr-4 font-medium">Type</th>
-                    <th className="py-2 pr-4 font-medium">Owner</th>
-                    <th className="py-2 pr-4 font-medium">Gap</th>
-                    <th className="py-2 pr-4 font-medium">Recommended Action</th>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th scope="col" className="py-2 pr-4 font-medium">Severity</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Obligation / Task</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Type</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Owner</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Gap</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Recommended Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -202,24 +198,24 @@ export function GapAnalysisPage() {
                       <td className="py-3 pr-4">
                         <SeverityBadge severity={i.severity} />
                       </td>
-                      <td className="py-3 pr-4 max-w-xs">
+                      <td className="max-w-xs py-3 pr-4">
                         <p className="font-medium text-foreground">{i.obligation_action}</p>
                         {i.task_title && (
-                          <p className="text-xs text-muted-foreground mt-0.5">{i.task_title}</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{i.task_title}</p>
                         )}
                       </td>
                       <td className="py-3 pr-4 text-muted-foreground">
                         {TYPE_LABELS[i.gap_type] || i.gap_type}
                       </td>
                       <td className="py-3 pr-4 text-muted-foreground">{i.department || "—"}</td>
-                      <td className="py-3 pr-4 text-muted-foreground max-w-xs">{i.description}</td>
-                      <td className="py-3 pr-4 text-muted-foreground max-w-xs">{i.recommended_action}</td>
+                      <td className="max-w-xs py-3 pr-4 text-muted-foreground">{i.description}</td>
+                      <td className="max-w-xs py-3 pr-4 text-muted-foreground">{i.recommended_action}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {!filtered.length && (
-                <p className="text-sm text-muted-foreground py-6 text-center">
+                <p className="py-6 text-center text-sm text-muted-foreground">
                   No gaps found{severityFilter || typeFilter ? " for the selected filters" : ""}.
                 </p>
               )}

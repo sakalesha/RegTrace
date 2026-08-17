@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+import { PageHeader } from "../components/ui/page-header";
+import { Select } from "../components/ui/input";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useReports } from "../hooks/useReports";
 import { api } from "../lib/api";
@@ -42,12 +44,10 @@ export function ReportsPage() {
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Audit Reports</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Generate a compliance audit report from live obligations, tasks, and evidence.
-          </p>
-        </div>
+        <PageHeader
+          title="Audit Reports"
+          description="Generate a compliance audit report from live obligations, tasks, and evidence."
+        />
 
         {error && (
           <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
@@ -58,11 +58,12 @@ export function ReportsPage() {
         <Card className="shadow-sm border border-border bg-card">
           <CardContent className="pt-6 flex flex-col sm:flex-row gap-3 items-end">
             <div className="flex-1 w-full">
-              <label className="text-sm font-medium text-foreground">Source scope</label>
-              <select
+              <label htmlFor="report-scope" className="text-sm font-medium text-foreground">Source scope</label>
+              <Select
+                id="report-scope"
                 value={selected}
                 onChange={(e) => setSelected(e.target.value)}
-                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground"
+                className="mt-1 w-full"
               >
                 <option value="ALL">All documents</option>
                 {documents.map((d) => (
@@ -70,7 +71,7 @@ export function ReportsPage() {
                     {d.title ?? d.document_id}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <button
               onClick={runPreview}
@@ -94,10 +95,10 @@ export function ReportsPage() {
         {current && (
           <>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-              <SummaryCard label="Compliance Score" value={`${current.summary.overall_compliance_score}%`} color="#22c55e" />
-              <SummaryCard label="Obligations" value={current.summary.total_obligations} color="#6366f1" />
-              <SummaryCard label="Total Gaps" value={current.summary.total_gaps} color="#ef4444" />
-              <SummaryCard label="Critical Gaps" value={current.summary.critical_gaps} color="#ef4444" />
+              <SummaryCard label="Compliance Score" value={`${current.summary.overall_compliance_score}%`} color="hsl(var(--success))" />
+              <SummaryCard label="Obligations" value={current.summary.total_obligations} color="hsl(var(--accent))" />
+              <SummaryCard label="Total Gaps" value={current.summary.total_gaps} color="hsl(var(--destructive))" />
+              <SummaryCard label="Critical Gaps" value={current.summary.critical_gaps} color="hsl(var(--destructive))" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -143,7 +144,7 @@ export function ReportsPage() {
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} dy={10} />
                         <YAxis axisLine={false} tickLine={false} tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }} allowDecimals={false} />
                         <Tooltip contentStyle={{ borderRadius: "6px", border: "1px solid hsl(var(--border))", backgroundColor: "hsl(var(--background))", color: "hsl(var(--foreground))" }} />
-                        <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#f97316" />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="hsl(var(--warning))" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
@@ -182,15 +183,15 @@ export function ReportsPage() {
               <CardContent>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left text-muted-foreground border-b border-border">
-                        <th className="py-2 pr-4 font-medium">Obligation</th>
-                        <th className="py-2 pr-4 font-medium">Status</th>
-                        <th className="py-2 pr-4 font-medium">Tasks</th>
-                        <th className="py-2 pr-4 font-medium">Evidence</th>
-                        <th className="py-2 pr-4 font-medium">Owner</th>
-                      </tr>
-                    </thead>
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-border">
+                    <th scope="col" className="py-2 pr-4 font-medium">Obligation</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Status</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Tasks</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Evidence</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Owner</th>
+                  </tr>
+                </thead>
                     <tbody>
                       {current.obligations.map((o: any) => (
                         <tr key={o.obligation_id} className="border-b border-border/60">

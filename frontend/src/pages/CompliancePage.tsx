@@ -1,46 +1,46 @@
+import { useState } from "react";
+import { useCompliance } from "../hooks/useCompliance";
 import { AppLayout } from "../components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { useCompliance } from "../hooks/useCompliance";
+import { Alert } from "../components/ui/alert";
+import { StatusBadge } from "../components/ui/StatusBadge";
+import { Pagination } from "../components/ui/pagination";
+import { PageHeader } from "../components/ui/page-header";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
-const STATUS_META: Record<string, { label: string; color: string }> = {
-  COMPLIANT: { label: "Compliant", color: "#22c55e" },
-  PARTIALLY_COMPLIANT: { label: "Partially Compliant", color: "#f59e0b" },
-  NON_COMPLIANT: { label: "Non-Compliant", color: "#ef4444" },
-  NOT_STARTED: { label: "Not Started", color: "#94a3b8" },
+const STATUS_META: Record<string, { label: string; cssVar: string }> = {
+  COMPLIANT: { label: "Compliant", cssVar: "--success" },
+  PARTIALLY_COMPLIANT: { label: "Partially Compliant", cssVar: "--warning" },
+  NON_COMPLIANT: { label: "Non-Compliant", cssVar: "--destructive" },
+  NOT_STARTED: { label: "Not Started", cssVar: "--muted-foreground" },
 };
 
-function StatusBadge({ status }: { status: string }) {
-  const meta = STATUS_META[status] || { label: status, color: "#94a3b8" };
-  return (
-    <span
-      className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-      style={{
-        backgroundColor: `${meta.color}1a`,
-        color: meta.color,
-        border: `1px solid ${meta.color}55`,
-      }}
-    >
-      {meta.label}
-    </span>
-  );
-}
+const PAGE_SIZE = 8;
 
 export function CompliancePage() {
   const { overview, obligations, isLoading, error } = useCompliance();
+  const [page, setPage] = useState(1);
 
   if (isLoading) {
     return (
       <AppLayout>
-        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+        <div className="flex flex-col items-center justify-center py-20 space-y-4" role="status" aria-live="polite">
           <div className="relative w-16 h-16">
-            <div className="absolute inset-0 rounded-full border-t-2 border-indigo-500 animate-spin"></div>
+            <div className="absolute inset-0 rounded-full border-t-2 border-primary animate-spin" />
             <div
-              className="absolute inset-2 rounded-full border-r-2 border-purple-500 animate-spin"
+              className="absolute inset-2 rounded-full border-r-2 border-accent animate-spin"
               style={{ animationDirection: "reverse" }}
-            ></div>
+            />
           </div>
-          <p className="text-indigo-500 font-medium animate-pulse">Loading Compliance Data...</p>
+          <p className="text-primary font-medium animate-pulse">Loading Compliance Data...</p>
         </div>
       </AppLayout>
     );
@@ -58,29 +58,31 @@ export function CompliancePage() {
     total: d.total,
   }));
 
+  const totalPages = Math.max(1, Math.ceil(obligations.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = obligations.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   return (
     <AppLayout>
       <div className="flex flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Compliance Service</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Real-time compliance posture derived from obligations, tasks, and evidence.
-          </p>
-        </div>
+        <PageHeader
+          title="Compliance Posture"
+          description="Real-time compliance posture derived from obligations, tasks, and evidence."
+        />
 
         {error && (
-          <div className="rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
+          <Alert tone="destructive" role="alert" title="Could not load compliance data">
             {error}
-          </div>
+          </Alert>
         )}
 
-        <Card className="shadow-sm border border-border bg-card">
+        <Card className="border border-border bg-card shadow-sm">
           <CardContent className="pt-6">
             <div className="flex items-center gap-6">
               <div
                 className="relative flex h-28 w-28 items-center justify-center rounded-full"
                 style={{
-                  background: `conic-gradient(#22c55e ${overview?.overall_score || 0}%, #e5e7eb 0)`,
+                  background: `conic-gradient(hsl(var(--success)) ${overview?.overall_score || 0}%, hsl(var(--border)) 0)`,
                 }}
               >
                 <div className="flex h-20 w-20 items-center justify-center rounded-full bg-card text-2xl font-bold text-foreground">
@@ -99,10 +101,10 @@ export function CompliancePage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {statusCards.map((s) => (
-            <Card key={s.label} className="shadow-sm border border-border bg-card">
+            <Card key={s.label} className="border border-border bg-card shadow-sm">
               <CardContent className="pt-6">
                 <p className="text-sm text-muted-foreground">{s.label}</p>
-                <p className="text-3xl font-semibold mt-1" style={{ color: s.color }}>
+                <p className="mt-1 text-3xl font-semibold" style={{ color: `hsl(var(${s.cssVar}))` }}>
                   {s.value}
                 </p>
               </CardContent>
@@ -110,12 +112,10 @@ export function CompliancePage() {
           ))}
         </div>
 
-        <Card className="shadow-sm border border-border bg-card">
+        <Card className="border border-border bg-card shadow-sm">
           <CardHeader>
             <CardTitle>Compliance by Department</CardTitle>
-            <CardDescription>
-              Share of obligations fully compliant, per assigned department
-            </CardDescription>
+            <CardDescription>Share of obligations fully compliant, per assigned department</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
@@ -156,23 +156,23 @@ export function CompliancePage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border border-border bg-card">
+        <Card className="border border-border bg-card shadow-sm">
           <CardHeader>
             <CardTitle>Critical Gaps</CardTitle>
             <CardDescription>Mandatory or overdue obligations not yet compliant</CardDescription>
           </CardHeader>
           <CardContent>
             {!overview?.critical_gaps?.length ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="py-6 text-center text-sm text-muted-foreground">
                 No critical gaps. All mandatory obligations are on track.
               </p>
             ) : (
               <ul className="divide-y divide-border">
                 {overview.critical_gaps.map((g: any) => (
-                  <li key={g.obligation_id} className="py-3 flex items-start justify-between gap-4">
+                  <li key={g.obligation_id} className="flex items-start justify-between gap-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-foreground">{g.action}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="mt-0.5 text-xs text-muted-foreground">
                         {g.department || "Unassigned"}
                         {g.is_overdue ? " · Overdue" : ""}
                       </p>
@@ -185,7 +185,7 @@ export function CompliancePage() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border border-border bg-card">
+        <Card className="border border-border bg-card shadow-sm">
           <CardHeader>
             <CardTitle>Obligations</CardTitle>
             <CardDescription>
@@ -195,21 +195,22 @@ export function CompliancePage() {
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
+                <caption className="sr-only">Compliance status per obligation</caption>
                 <thead>
-                  <tr className="text-left text-muted-foreground border-b border-border">
-                    <th className="py-2 pr-4 font-medium">Obligation</th>
-                    <th className="py-2 pr-4 font-medium">Owner</th>
-                    <th className="py-2 pr-4 font-medium">Tasks</th>
-                    <th className="py-2 pr-4 font-medium">Evidence</th>
-                    <th className="py-2 pr-4 font-medium">Status</th>
+                  <tr className="border-b border-border text-left text-muted-foreground">
+                    <th scope="col" className="py-2 pr-4 font-medium">Obligation</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Owner</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Tasks</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Evidence</th>
+                    <th scope="col" className="py-2 pr-4 font-medium">Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {obligations.map((o: any) => (
+                  {pageItems.map((o: any) => (
                     <tr key={o.obligation_id} className="border-b border-border/60">
                       <td className="py-3 pr-4">
-                        <p className="font-medium text-foreground max-w-md">{o.action}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="max-w-md font-medium text-foreground">{o.action}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
                           {o.actor}
                           {o.is_mandatory ? " · Mandatory" : ""}
                           {o.is_overdue ? " · Overdue" : ""}
@@ -230,11 +231,17 @@ export function CompliancePage() {
                 </tbody>
               </table>
               {!obligations.length && (
-                <p className="text-sm text-muted-foreground py-6 text-center">
+                <p className="py-6 text-center text-sm text-muted-foreground">
                   No obligations found. Upload and process a document to populate compliance data.
                 </p>
               )}
             </div>
+            <Pagination
+              page={safePage}
+              pageSize={PAGE_SIZE}
+              total={obligations.length}
+              onPageChange={setPage}
+            />
           </CardContent>
         </Card>
       </div>

@@ -78,7 +78,7 @@ export function ValidationPanel({
             {isMetadataValid ? (
               <CheckCircle className="w-4 h-4" />
             ) : (
-              <Info className="w-4 h-4 text-blue-500" />
+              <Info className="w-4 h-4 text-accent" />
             )}
           </div>
           <div>

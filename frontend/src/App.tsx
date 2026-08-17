@@ -19,7 +19,6 @@ function App() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
-        <Route path="/documents/upload" element={<Navigate to="/pipeline" replace />} />
         <Route path="/documents/:documentId/clauses" element={<ClauseExplorerPage />} />
         <Route path="/documents" element={<DocumentsPage />} />
         <Route path="/clauses" element={<ClausesPage />} />

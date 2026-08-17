@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileCheck, XCircle } from "lucide-react";
+import { FileCheck } from "lucide-react";
 import { AppLayout } from "../components/layout/AppLayout";
 import { EvidenceList } from "../components/evidence/EvidenceList";
 import { EvidenceSubmissionPanel } from "../components/evidence/EvidenceSubmissionPanel";
@@ -7,6 +7,9 @@ import { useEvidence } from "../hooks/useEvidence";
 import { useTasks } from "../hooks/useTasks";
 import { api } from "../lib/api";
 import type { Task } from "../data/taskMockData";
+import { PageHeader } from "../components/ui/page-header";
+import { Select } from "../components/ui/input";
+import { EmptyState } from "../components/ui/empty-state";
 
 interface DocumentOption {
   document_id: string;
@@ -67,100 +70,92 @@ export function EvidencePage() {
 
   return (
     <AppLayout>
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <FileCheck className="w-7 h-7 text-primary" />
-            Evidence Collection
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Capture documentary proof of compliance for each task.
-          </p>
-        </div>
+      <PageHeader
+        title="Evidence Collection"
+        description="Capture documentary proof of compliance for each task."
+      />
 
-        <div className="space-y-6">
-          {error && (
-            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive flex items-center gap-2">
-              <XCircle className="w-4 h-4" />
-              {error}
-            </div>
-          )}
+      <div className="space-y-6">
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            <FileCheck className="h-4 w-4" />
+            {error}
+          </div>
+        )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Document
-              </label>
-              <select
-                value={selectedDocument}
-                onChange={e => {
-                  setSelectedDocument(e.target.value);
-                  setSelectedTaskId("");
-                }}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">All documents</option>
-                {documents.map(doc => (
-                  <option key={doc.document_id} value={doc.document_id}>
-                    {doc.title ?? doc.document_id}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Task
-              </label>
-              <select
-                value={selectedTaskId}
-                onChange={e => setSelectedTaskId(e.target.value)}
-                className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                <option value="">All tasks (grouped evidence)</option>
-                {tasks.map(task => (
-                  <option key={task.id} value={task.id}>
-                    {task.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div>
+            <label htmlFor="evidence-document" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Document
+            </label>
+            <Select
+              id="evidence-document"
+              value={selectedDocument}
+              onChange={(e) => {
+                setSelectedDocument(e.target.value);
+                setSelectedTaskId("");
+              }}
+            >
+              <option value="">All documents</option>
+              {documents.map(doc => (
+                <option key={doc.document_id} value={doc.document_id}>
+                  {doc.title ?? doc.document_id}
+                </option>
+              ))}
+            </Select>
           </div>
 
-          {selectedTask ? (
-            <div className="flex flex-col lg:flex-row gap-6">
-              <div className="w-full lg:w-1/2 space-y-4">
-                <div className="rounded-xl border border-border bg-card p-5">
-                  <h3 className="text-base font-semibold mb-1">{selectedTask.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{selectedTask.description}</p>
-                </div>
-                <EvidenceSubmissionPanel task={selectedTask} onSubmit={handleSubmit} />
-              </div>
+          <div>
+            <label htmlFor="evidence-task" className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Task
+            </label>
+            <Select
+              id="evidence-task"
+              value={selectedTaskId}
+              onChange={(e) => setSelectedTaskId(e.target.value)}
+            >
+              <option value="">All tasks (grouped evidence)</option>
+              {tasks.map(task => (
+                <option key={task.id} value={task.id}>
+                  {task.title}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </div>
 
-              <div className="w-full lg:w-1/2">
-                <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
-                  Submitted Evidence
-                </h3>
-                <EvidenceList evidence={evidence} onUpdate={handleUpdate} />
+        {selectedTask ? (
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <div className="w-full space-y-4 lg:w-1/2">
+              <div className="rounded-xl border border-border bg-card p-5">
+                <h3 className="mb-1 text-base font-semibold">{selectedTask.title}</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">{selectedTask.description}</p>
               </div>
+              <EvidenceSubmissionPanel task={selectedTask} onSubmit={handleSubmit} />
             </div>
-          ) : (
-            <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wider">
+
+            <div className="w-full lg:w-1/2">
+              <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
                 Submitted Evidence
               </h3>
               <EvidenceList evidence={evidence} onUpdate={handleUpdate} />
-              {!selectedDocument && evidence.length === 0 && (
-                <div className="text-center py-12 border-2 border-dashed border-border rounded-2xl">
-                  <FileCheck className="w-12 h-12 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="text-sm text-muted-foreground">
-                    Select a task to submit evidence, or choose a document to view all of its evidence.
-                  </p>
-                </div>
-              )}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div>
+            <h3 className="mb-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              Submitted Evidence
+            </h3>
+            <EvidenceList evidence={evidence} onUpdate={handleUpdate} />
+            {!selectedDocument && evidence.length === 0 && (
+              <EmptyState
+                icon={FileCheck}
+                title="No evidence yet"
+                description="Select a task to submit evidence, or choose a document to view all of its evidence."
+              />
+            )}
+          </div>
+        )}
       </div>
     </AppLayout>
   );

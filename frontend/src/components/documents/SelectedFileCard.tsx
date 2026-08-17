@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { File, X, CheckCircle2 } from "lucide-react";
-import { Button } from "../ui/button-1";
+import { Button } from "../ui/button";
 
 interface SelectedFileCardProps {
   file: File;

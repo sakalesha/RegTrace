@@ -2,10 +2,10 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 
 const COLORS: Record<string, string> = {
-  Compliant: '#22c55e',
-  'Partially Compliant': '#f59e0b',
-  'Non-Compliant': '#ef4444',
-  'Not Started': '#94a3b8',
+  Compliant: 'hsl(var(--success))',
+  'Partially Compliant': 'hsl(var(--warning))',
+  'Non-Compliant': 'hsl(var(--destructive))',
+  'Not Started': 'hsl(var(--muted-foreground))',
 };
 
 export function ComplianceChartCard({ overview }: { overview?: any }) {
@@ -60,7 +60,7 @@ export function ComplianceChartCard({ overview }: { overview?: any }) {
               />
               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                 {data.map((entry) => (
-                  <Cell key={entry.name} fill={COLORS[entry.name] || '#94a3b8'} />
+                  <Cell key={entry.name} fill={COLORS[entry.name] || 'hsl(var(--muted-foreground))'} />
                 ))}
               </Bar>
             </BarChart>

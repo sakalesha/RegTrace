@@ -43,8 +43,16 @@ export function UploadDropzone({ onFileSelected, maxSizeMB = 25 }: UploadDropzon
         whileHover={{ scale: 1.01 }}
         whileTap={{ scale: 0.99 }}
         animate={{
-          borderColor: isDragReject ? "#ef4444" : isDragActive ? "#3b82f6" : "#e5e7eb",
-          backgroundColor: isDragReject ? "#fef2f2" : isDragActive ? "#eff6ff" : "#ffffff",
+          borderColor: isDragReject
+            ? "hsl(var(--destructive))"
+            : isDragActive
+              ? "hsl(var(--primary))"
+              : "hsl(var(--border))",
+          backgroundColor: isDragReject
+            ? "hsl(var(--destructive) / 0.05)"
+            : isDragActive
+              ? "hsl(var(--primary) / 0.05)"
+              : "hsl(var(--background))",
         }}
         className={`relative flex flex-col items-center justify-center w-full h-64 p-6 border-2 border-dashed rounded-xl cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
       >

@@ -252,5 +252,37 @@ export const api = {
       if (!response.ok) throw new Error('Failed to fetch gap items');
       return response.json();
     }
+  },
+  reports: {
+    list: async () => {
+      const response = await fetch(`${API_BASE_URL}/reports/`);
+      if (!response.ok) throw new Error('Failed to fetch reports');
+      return response.json();
+    },
+    generate: async (documentId?: string | null) => {
+      const response = await fetch(`${API_BASE_URL}/reports/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document_id: documentId ?? null }),
+      });
+      if (!response.ok) throw new Error('Failed to generate report');
+      return response.json();
+    },
+    preview: async (documentId?: string | null) => {
+      const response = await fetch(`${API_BASE_URL}/reports/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ document_id: documentId ?? null }),
+      });
+      if (!response.ok) throw new Error('Failed to preview report');
+      return response.json();
+    },
+    get: async (reportId: string) => {
+      const response = await fetch(`${API_BASE_URL}/reports/${reportId}`);
+      if (!response.ok) throw new Error('Failed to fetch report');
+      return response.json();
+    },
+    exportUrl: (reportId: string, format: 'json' | 'pdf' = 'pdf') =>
+      `${API_BASE_URL}/reports/${reportId}/export?format=${format}`,
   }
 };

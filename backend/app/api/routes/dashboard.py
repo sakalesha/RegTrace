@@ -44,11 +44,12 @@ async def get_dashboard_stats():
     }
 
     pending_obs = await database.obligations.count_documents({"status": "PENDING"})
+    audit_report_count = await database.audit_reports.count_documents({})
     pending_reviews = {
         "obligations": pending_obs,
         "tasks": sc.get("PARTIALLY_COMPLIANT", 0),
         "evidence": 0,
-        "auditReports": 0,
+        "auditReports": audit_report_count,
     }
 
     return DashboardStats(kpis=kpis, pending_reviews=pending_reviews)

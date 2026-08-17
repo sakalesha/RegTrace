@@ -22,9 +22,10 @@ ACCEPTED = "ACCEPTED"
 class ComplianceService:
     """Derives real compliance status from the obligation -> task -> evidence chain."""
 
-    async def get_overview(self) -> ComplianceOverview:
+    async def get_overview(self, document_id: Optional[str] = None) -> ComplianceOverview:
         database = db.get_db()
-        obligations = await self._load_obligations(database)
+        filters = {"document_id": document_id} if document_id else {}
+        obligations = await self._load_obligations(database, filters)
         obligation_ids = [o["_id"] for o in obligations]
         tasks_by_obl, evs_by_obl = await self._load_links(database, obligation_ids)
 

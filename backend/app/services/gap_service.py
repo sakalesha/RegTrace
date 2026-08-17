@@ -30,8 +30,9 @@ SEVERITY_RANK = {
 class GapService:
     """Enumerates concrete, task-level compliance gaps with severity and remediation."""
 
-    async def get_overview(self) -> GapOverview:
-        items = await self.get_gap_items({})
+    async def get_overview(self, document_id: Optional[str] = None) -> GapOverview:
+        filters = {"document_id": document_id} if document_id else {}
+        items = await self.get_gap_items(filters)
         return self._summarize(items)
 
     async def get_gap_items(self, filters: Dict[str, Any]) -> List[GapItem]:

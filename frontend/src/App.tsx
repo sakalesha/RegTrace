@@ -11,19 +11,6 @@ import { CompliancePage } from './pages/CompliancePage';
 import { GapAnalysisPage } from './pages/GapAnalysisPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SearchPage } from './pages/SearchPage';
-import { AppLayout } from './components/layout/AppLayout';
-
-// Dummy page for other routes to prevent 404s
-const DummyPage = ({ title }: { title: string }) => (
-  <AppLayout>
-    <div className="py-12 flex items-center justify-center">
-      <div className="text-center">
-        <h2 className="text-2xl font-semibold text-gray-900">{title} Page</h2>
-        <p className="mt-2 text-gray-600">This page is currently under construction.</p>
-      </div>
-    </div>
-  </AppLayout>
-);
 
 function App() {
   return (
@@ -43,7 +30,6 @@ function App() {
         <Route path="/gap-analysis" element={<GapAnalysisPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/search" element={<SearchPage />} />
-        <Route path="/settings" element={<DummyPage title="Settings" />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Router>

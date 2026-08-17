@@ -7,6 +7,7 @@ import { ClausesPage } from './pages/ClausesPage';
 import { ObligationsPage } from './pages/ObligationsPage';
 import { TasksPage } from './pages/TasksPage';
 import { EvidencePage } from './pages/EvidencePage';
+import { CompliancePage } from './pages/CompliancePage';
 import { AppLayout } from './components/layout/AppLayout';
 
 // Dummy page for other routes to prevent 404s
@@ -35,7 +36,7 @@ function App() {
         <Route path="/obligations" element={<ObligationsPage />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/evidence" element={<EvidencePage />} />
-        <Route path="/compliance" element={<DummyPage title="Compliance" />} />
+        <Route path="/compliance" element={<CompliancePage />} />
         <Route path="/gap-analysis" element={<DummyPage title="Gap Analysis" />} />
         <Route path="/reports" element={<DummyPage title="Audit Reports" />} />
         <Route path="/ai-query" element={<DummyPage title="AI Query" />} />

@@ -215,5 +215,24 @@ export const api = {
       if (!response.ok) throw new Error('Failed to cancel pipeline run');
       return response.json();
     }
+  },
+  compliance: {
+    overview: async () => {
+      const response = await fetch(`${API_BASE_URL}/compliance/overview`);
+      if (!response.ok) throw new Error('Failed to fetch compliance overview');
+      return response.json();
+    },
+    obligations: async (filters?: { document_id?: string; status?: string; department?: string; priority?: string }) => {
+      let url = `${API_BASE_URL}/compliance/obligations`;
+      const params = new URLSearchParams();
+      if (filters?.document_id) params.append('document_id', filters.document_id);
+      if (filters?.status) params.append('status', filters.status);
+      if (filters?.department) params.append('department', filters.department);
+      if (filters?.priority) params.append('priority', filters.priority);
+      if (params.toString()) url += `?${params.toString()}`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch compliance obligations');
+      return response.json();
+    }
   }
 };

@@ -8,10 +8,12 @@ import { PendingReviewsCard } from "../components/dashboard/PendingReviewsCard";
 import { PriorityActionsCard } from "../components/dashboard/PriorityActionsCard";
 
 import { useDashboard } from "../hooks/useDashboard";
+import { useCompliance } from "../hooks/useCompliance";
 import { api } from "../lib/api";
 
 export function DashboardPage() {
   const { stats, documents, isLoading, refetch } = useDashboard();
+  const { overview } = useCompliance();
   const [isClearingDb, setIsClearingDb] = useState(false);
   const [dbFeedback, setDbFeedback] = useState<string | null>(null);
 
@@ -60,7 +62,7 @@ export function DashboardPage() {
 
         <KPIGrid kpis={stats?.kpis} />
 
-        <ComplianceChartCard />
+        <ComplianceChartCard overview={overview} />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <RecentDocumentsCard documents={documents} />
